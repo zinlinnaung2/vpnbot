@@ -11,6 +11,7 @@ import { HighLowScene } from './scenes/high-low.scene';
 import { GamePurchaseScene } from './scenes/game-purchase.scene';
 import { SettingsService } from 'src/admin/settings.service';
 import { LuckyDrawService } from 'src/lucky-draw/lucky-draw.service';
+import { LuckyDrawWizard } from './scenes/lucky_draw_scene';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { LuckyDrawService } from 'src/lucky-draw/lucky-draw.service';
     WithdrawScene,
     HighLowScene,
     GamePurchaseScene,
+    LuckyDrawWizard,
     LuckyDrawService, // ဒီနေရာမှာ ထည့်ပါ
     SettingsService,
   ],
