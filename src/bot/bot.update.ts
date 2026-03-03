@@ -250,10 +250,11 @@ export class BotUpdate {
     });
 
     if (user?.luckyDrawParticipation) {
-      return await ctx.reply(
+      await await ctx.reply(
         `🎫 လူကြီးမင်း စာရင်းသွင်းထားပြီးဖြစ်ပါတယ်။\nသင်၏ Ticket ID မှာ <b>${user.luckyDrawParticipation.ticketId}</b> ဖြစ်ပါတယ်။`,
         { parse_mode: 'HTML' },
       );
+      return;
     }
 
     // ၃။ အခြေအနေအားလုံး အိုကေရင် Wizard Scene ထဲကို ပို့ပေးမယ်
