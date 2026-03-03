@@ -156,6 +156,183 @@ export class AdminController {
   //     data,
   //   });
   // }
+  // 1. Rigged List အားလုံးကို ဆွဲထုတ်ခြင်း (READ)
+  @Get('lucky-draw/rigged')
+  async getRiggedWinners() {
+    const winners = await this.prisma.predefinedWinner.findMany({
+      orderBy: { id: 'desc' },
+    });
+
+    // BigInt ကို JSON ပို့နိုင်ရန် String ပြောင်းပေးရမည်
+    return winners.map((w) => ({
+      ...w,
+      telegramId: w.telegramId.toString(),
+    }));
+  }
+
+  // 2. Winner အသစ်သတ်မှတ်ခြင်း (CREATE / UPDATE)
+  @Post('lucky-draw/rigged')
+  async setRiggedWinner(
+    @Body() body: { telegramId: string; prizeType: string },
+  ) {
+    const { telegramId, prizeType } = body;
+
+    if (!telegramId || !prizeType) {
+      throw new BadRequestException('Telegram ID နှင့် Prize Type လိုအပ်ပါသည်');
+    }
+
+    const result = await this.prisma.predefinedWinner.upsert({
+      where: { telegramId: BigInt(telegramId) },
+      update: { prizeType },
+      create: {
+        telegramId: BigInt(telegramId),
+        prizeType,
+      },
+    });
+
+    return {
+      success: true,
+      data: { ...result, telegramId: result.telegramId.toString() },
+    };
+  }
+
+  // 3. Rigged စာရင်းမှ ဖျက်ခြင်း (DELETE)
+  @Delete('lucky-draw/rigged/:id')
+  async deleteRiggedWinner(@Param('id', ParseIntPipe) id: number) {
+    try {
+      await this.prisma.predefinedWinner.delete({
+        where: { id },
+      });
+      return { success: true, message: 'Rigged winner removed' };
+    } catch (error) {
+      throw new NotFoundException('Winner ကို ရှာမတွေ့ပါ');
+    }
+  }
+
+  // 4. Lucky Draw Participants စာရင်းကို ကြည့်ခြင်း (Optional - Monitoring အတွက်)
+  @Get('lucky-draw/participants')
+  async getParticipants() {
+    const participants = await this.prisma.luckyDrawParticipant.findMany({
+      include: { user: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return participants.map((p) => ({
+      ...p,
+      user: {
+        ...p.user,
+        telegramId: p.user.telegramId.toString(),
+        balance: p.user.balance.toString(),
+      },
+    }));
+  }
+
+  // ၁။ ပါဝင်သူအားလုံးကို Pagination ဖြင့် ကြည့်ရှုခြင်း (READ - List)
+  @Get('lucky-draw/participants')
+  async getAllParticipants(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+    @Query('search') search?: string,
+  ) {
+    const p = Math.max(1, parseInt(page) || 1);
+    const l = Math.max(1, parseInt(limit) || 10);
+    const skip = (p - 1) * l;
+
+    const whereClause: any = {};
+    if (search) {
+      whereClause.OR = [
+        { ticketId: { contains: search, mode: 'insensitive' } },
+        { playerId: { contains: search, mode: 'insensitive' } },
+        { accName: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [participants, total] = await Promise.all([
+      this.prisma.luckyDrawParticipant.findMany({
+        where: whereClause,
+        skip,
+        take: l,
+        include: { user: true },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.luckyDrawParticipant.count({ where: whereClause }),
+    ]);
+
+    const formatted = participants.map((p) => ({
+      ...p,
+      user: {
+        id: p.user.id,
+        telegramId: p.user.telegramId.toString(),
+        username: p.user.username,
+        firstName: p.user.firstName,
+      },
+    }));
+
+    return {
+      data: formatted,
+      meta: {
+        total,
+        page: p,
+        lastPage: Math.ceil(total / l) || 1,
+      },
+    };
+  }
+
+  // ၂။ ပါဝင်သူတစ်ဦးချင်းစီ၏ အချက်အလက်ကို ကြည့်ခြင်း (READ - Single)
+  @Get('lucky-draw/participants/:id')
+  async getParticipant(@Param('id', ParseIntPipe) id: number) {
+    const participant = await this.prisma.luckyDrawParticipant.findUnique({
+      where: { id },
+      include: { user: true },
+    });
+
+    if (!participant) throw new NotFoundException('Participant not found');
+
+    return {
+      ...participant,
+      user: {
+        ...participant.user,
+        telegramId: participant.user.telegramId.toString(),
+      },
+    };
+  }
+
+  // ၃။ ပါဝင်သူ၏ Game Info သို့မဟုတ် ဆုအခြေအနေကို ပြင်ဆင်ခြင်း (UPDATE)
+  @Patch('lucky-draw/participants/:id')
+  async updateParticipant(
+    @Param('id', ParseIntPipe) id: number,
+    @Body()
+    body: {
+      playerId?: string;
+      serverId?: string;
+      accName?: string;
+      isWinner?: boolean;
+      prize?: string;
+    },
+  ) {
+    try {
+      const updated = await this.prisma.luckyDrawParticipant.update({
+        where: { id },
+        data: body,
+      });
+      return { success: true, data: updated };
+    } catch (error) {
+      throw new BadRequestException('ပြင်ဆင်မှု မအောင်မြင်ပါ');
+    }
+  }
+
+  // ၄။ ပါဝင်သူကို စာရင်းမှ ပယ်ဖျက်ခြင်း (DELETE)
+  @Delete('lucky-draw/participants/:id')
+  async deleteParticipant(@Param('id', ParseIntPipe) id: number) {
+    try {
+      await this.prisma.luckyDrawParticipant.delete({
+        where: { id },
+      });
+      return { success: true, message: 'Participant removed successfully' };
+    } catch (error) {
+      throw new NotFoundException('ဖျက်လိုသော data ရှာမတွေ့ပါ');
+    }
+  }
 
   @Get('orders')
   async getAllOrders(
