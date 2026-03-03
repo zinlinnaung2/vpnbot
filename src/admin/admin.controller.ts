@@ -195,6 +195,27 @@ export class AdminController {
   //     data: { ...result, telegramId: result.telegramId.toString() },
   //   };
   // }
+  // lucky-draw.controller.ts
+
+  @Delete('lucky-draw/reset-all')
+  async resetLuckyDraw() {
+    try {
+      await this.prisma.$transaction([
+        // Clear the participation list
+        this.prisma.luckyDrawParticipant.deleteMany(),
+        // Clear the rigged/predefined winners list
+        this.prisma.predefinedWinner.deleteMany(),
+      ]);
+
+      return {
+        success: true,
+        message: 'Lucky Draw system has been fully reset. All tables cleared.',
+      };
+    } catch (error) {
+      console.error(error);
+      throw new InternalServerErrorException('Reset failed. Database error.');
+    }
+  }
 
   // 3. Rigged စာရင်းမှ ဖျက်ခြင်း (DELETE)
   @Delete('lucky-draw/rigged/:id')
