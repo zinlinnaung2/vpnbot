@@ -44,7 +44,7 @@ export class LuckyDrawWizard {
     const loading = await ctx.reply('⏳ အကောင့်အမည် စစ်ဆေးနေပါသည်...');
 
     try {
-      // --- API Validation Integration ---
+      // --- API Validation ---
       const res = await axios.get(
         `https://cekidml.caliph.dev/api/validasi?id=${playerId}&serverid=${serverId}`,
         { timeout: 8000 },
@@ -54,8 +54,8 @@ export class LuckyDrawWizard {
         .deleteMessage(ctx.chat.id, loading.message_id)
         .catch(() => {});
 
-      if (res.data.status === 'success') {
-        const nickname = res.data.result?.nickname;
+      if (res.data.status === 'success' && res.data.result?.nickname) {
+        const nickname = res.data.result.nickname;
         ctx.wizard.state.accName = nickname;
 
         await ctx.reply(
@@ -82,19 +82,30 @@ export class LuckyDrawWizard {
           },
         );
       } else {
+        // Validation Failed - No manual entry allowed
         await ctx.reply(
-          '❌ ID သို့မဟုတ် Server မှားယွင်းနေပါသည်။ ပထမအဆင့်မှ ပြန်စပေးပါ -',
+          '❌ စိတ်မကောင်းပါဘူး၊ လူကြီးမင်းရိုက်ထည့်လိုက်သော ID/Server ကို ရှာမတွေ့ပါ။\n\nကျေးဇူးပြု၍ ID မှန်ကန်အောင် ပြန်လည်ရိုက်ထည့်ပေးပါ -',
         );
-        return ctx.wizard.selectStep(0); // Go back to Step 1
+        return ctx.wizard.selectStep(0); // Back to Player ID input
       }
     } catch (e) {
       await ctx.telegram
         .deleteMessage(ctx.chat.id, loading.message_id)
         .catch(() => {});
+
+      // Connection Error / API Down - No manual entry allowed
       await ctx.reply(
-        '⚠️ အကောင့်စစ်ဆေး၍မရပါ။ ကျေးဇူးပြု၍ အကောင့်အမည်ကို ကိုယ်တိုင်ရိုက်ထည့်ပေးပါ -',
+        '⚠️ အကောင့်စစ်ဆေး၍မရပါ။။ ကျေးဇူးပြု၍ ခဏနေမှ ပြန်လည်ကြိုးစားပေးပါ သို့မဟုတ် ID ကို ပြန်လည်စစ်ဆေးပြီး ရိုက်ထည့်ပါ -',
+        Markup.inlineKeyboard([
+          [
+            Markup.button.callback(
+              '🔄 ပြန်လည်ကြိုးစားမည်',
+              'restart_lucky_input',
+            ),
+          ],
+          [Markup.button.callback('🚫 ထွက်မည်', 'exit_lucky_draw')],
+        ]),
       );
-      ctx.wizard.next(); // Fallback to manual entry (Step 4)
     }
   }
 
@@ -102,8 +113,6 @@ export class LuckyDrawWizard {
   async onConfirm(@Context() ctx: any) {
     await ctx.answerCbQuery();
     await ctx.deleteMessage().catch(() => {});
-
-    // Process the final registration logic
     return this.finalRegistration(ctx);
   }
 
@@ -115,11 +124,12 @@ export class LuckyDrawWizard {
     return ctx.wizard.selectStep(0);
   }
 
-  // Manual fallback step if API fails
-  @WizardStep(4)
-  async step4(@Context() ctx: any, @Message('text') accName: string) {
-    ctx.wizard.state.accName = accName;
-    return this.finalRegistration(ctx);
+  @Action('exit_lucky_draw')
+  async onExit(@Context() ctx: any) {
+    await ctx.answerCbQuery();
+    await ctx.deleteMessage().catch(() => {});
+    await ctx.reply('🚫 ကံစမ်းမဲအစီအစဉ်မှ ထွက်လိုက်ပါပြီ။');
+    return ctx.scene.leave();
   }
 
   async finalRegistration(ctx: any) {
@@ -127,12 +137,23 @@ export class LuckyDrawWizard {
     const telegramId = ctx.from.id;
 
     try {
-      const user = await this.prisma.user.findUnique({
-        where: { telegramId: BigInt(telegramId) },
+      // Check if user already joined
+      const existing = await this.prisma.luckyDrawParticipant.findUnique({
+        where: {
+          userId: (
+            await this.prisma.user.findUnique({
+              where: { telegramId: BigInt(telegramId) },
+            })
+          ).id,
+        },
       });
 
-      const count = await this.prisma.luckyDrawParticipant.count();
+      if (existing) {
+        await ctx.reply('⚠️ လူကြီးမင်းသည် စာရင်းသွင်းပြီးသားဖြစ်ပါသည်။');
+        return ctx.scene.leave();
+      }
 
+      const count = await this.prisma.luckyDrawParticipant.count();
       if (count >= 200) {
         await ctx.reply(
           '❌ စိတ်မကောင်းပါဘူး၊ ကံစမ်းမဲအယောက် ၂၀၀ ပြည့်သွားပါပြီ။',
@@ -140,7 +161,11 @@ export class LuckyDrawWizard {
         return ctx.scene.leave();
       }
 
+      const user = await this.prisma.user.findUnique({
+        where: { telegramId: BigInt(telegramId) },
+      });
       const ticketId = `TKT-${Math.floor(1000 + Math.random() * 9000)}`;
+
       await this.prisma.luckyDrawParticipant.create({
         data: {
           userId: user.id,
@@ -156,7 +181,7 @@ export class LuckyDrawWizard {
         { parse_mode: 'HTML' },
       );
 
-      if (count + 1 >= 2) {
+      if (count + 1 >= 200) {
         await ctx.reply(
           '🎊 ဂုဏ်ယူပါတယ်! အယောက် ၂၀၀ ပြည့်သွားပြီဖြစ်တဲ့အတွက် Lucky Draw ကို အခုပဲ စတင်ပါတော့မယ်။',
         );
