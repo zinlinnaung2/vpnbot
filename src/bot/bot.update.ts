@@ -16,13 +16,14 @@ import { UseFilters } from '@nestjs/common';
 import { TelegrafExceptionFilter } from '../common/filters/telegraf-exception.filter';
 import { BotContext } from 'src/interfaces/bot-context.interface';
 import { PrismaService } from '../prisma/prisma.service';
+import { LuckyDrawService } from 'src/lucky-draw/lucky-draw.service';
 
 export const MAIN_KEYBOARD = Markup.keyboard([
+  ['🎟️ MLBB Lucky Draw'],
   ['🛒 စျေးဝယ်မယ်', '📝 စျေးဝယ်မှတ်တမ်း'], // ခလုတ်အသစ်ထည့်လိုက်သည်
   ['💰 လက်ကျန်ငွေ', '➕ ငွေဖြည့်မယ်'],
   ['💸 ငွေထုတ်မယ်', '👥 ဖိတ်ခေါ်မယ်'],
-  ['🎮 ဂိမ်းကစားမယ်'],
-  ['📞 အကူအညီ'],
+  ['🎮 ဂိမ်းကစားမယ်', '📞 အကူအညီ'],
 ]).resize();
 export const GAME_KEYBOARD = Markup.keyboard([
   ['🎰 2D ထိုးမယ်', '🎲 3D ထိုးမယ်'],
@@ -42,6 +43,7 @@ export class BotUpdate {
     private readonly productsService: ProductsService,
     private readonly walletService: WalletService,
     private readonly prisma: PrismaService,
+    private readonly drawService: LuckyDrawService,
   ) {}
 
   @Start()
@@ -227,6 +229,36 @@ export class BotUpdate {
   // async onMessage(@Ctx() ctx: any) {
   //   console.log('Chat ID is:', ctx.chat.id); // ဒီကောင်က Channel ID ကို ထုတ်ပြပေးမှာပါ
   // }
+
+  @Hears('🎟️ MLBB Lucky Draw')
+  async onLuckyDraw(@Ctx() ctx: BotContext) {
+    const telegramId = ctx.from.id;
+
+    // ၁။ လူဦးရေ ၂၀၀ ပြည့်မပြည့် အပြင်ကနေ ကြိုစစ်မယ် (UX ပိုကောင်းအောင်)
+    const count = await this.prisma.luckyDrawParticipant.count();
+
+    if (count >= 200) {
+      return await ctx.reply(
+        '❌ စိတ်မကောင်းပါဘူး၊ ယခုတစ်ပတ်အတွက် ကံစမ်းမဲအယောက် ၂၀၀ ပြည့်သွားပါပြီ။\nနောက်တစ်ပတ်တွင် ပြန်လည်ပါဝင်ပေးပါခင်ဗျာ။',
+      );
+    }
+
+    // ၂။ User က ပါဝင်ပြီးသားလား စစ်မယ်
+    const user = await this.prisma.user.findUnique({
+      where: { telegramId: BigInt(telegramId) },
+      include: { luckyDrawParticipation: true },
+    });
+
+    if (user?.luckyDrawParticipation) {
+      return await ctx.reply(
+        `🎫 လူကြီးမင်း စာရင်းသွင်းထားပြီးဖြစ်ပါတယ်။\nသင်၏ Ticket ID မှာ <b>${user.luckyDrawParticipation.ticketId}</b> ဖြစ်ပါတယ်။`,
+        { parse_mode: 'HTML' },
+      );
+    }
+
+    // ၃။ အခြေအနေအားလုံး အိုကေရင် Wizard Scene ထဲကို ပို့ပေးမယ်
+    await ctx.scene.enter('lucky_draw_scene');
+  }
 
   @Command('balance')
   @Hears('💰 လက်ကျန်ငွေ')

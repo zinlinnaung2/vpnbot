@@ -21,21 +21,22 @@ enum DepositStatus {
 }
 
 model User {
-  id                  Int           @id @default(autoincrement())
-  telegramId          BigInt        @unique
-  username            String?
-  firstName           String?
-  balance             Decimal       @default(0.0) @db.Decimal(10, 2)
-  welcomeBonusClaimed Boolean       @default(false)
-  isReseller          Boolean       @default(false)
-  commission          Decimal       @default(15.0) // ဥပမာ - ၁၅% ကော်မရှင် (၁၀၀၀ ဖိုးထိုးရင် ၈၅၀ ပဲ နှုတ်မယ်)
-  createdAt           DateTime      @default(now())
-  transactions        Transaction[]
-  deposits            Deposit[]
-  purchases           Purchase[]
-  bets                Bet[]
-  withdraws           Withdraw[]
-  highLowBets         HighLowBet[]
+  id                     Int                   @id @default(autoincrement())
+  telegramId             BigInt                @unique
+  username               String?
+  firstName              String?
+  balance                Decimal               @default(0.0) @db.Decimal(10, 2)
+  welcomeBonusClaimed    Boolean               @default(false)
+  isReseller             Boolean               @default(false)
+  commission             Decimal               @default(15.0) // ဥပမာ - ၁၅% ကော်မရှင် (၁၀၀၀ ဖိုးထိုးရင် ၈၅၀ ပဲ နှုတ်မယ်)
+  createdAt              DateTime              @default(now())
+  transactions           Transaction[]
+  deposits               Deposit[]
+  purchases              Purchase[]
+  bets                   Bet[]
+  withdraws              Withdraw[]
+  highLowBets            HighLowBet[]
+  luckyDrawParticipation LuckyDrawParticipant?
 }
 
 model ProductKey {
@@ -148,6 +149,28 @@ model Withdraw {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   user           User           @relation(fields: [userId], references: [id])
+}
+
+// ကံစမ်းမဲ ပါဝင်သူများစာရင်း
+model LuckyDrawParticipant {
+  id        Int      @id @default(autoincrement())
+  ticketId  String   @unique // e.g., TICKET-12345
+  userId    Int      @unique
+  user      User     @relation(fields: [userId], references: [id])
+  playerId  String
+  serverId  String
+  accName   String
+  prize     String? // ဘယ်ဆုပေါက်လဲ (e.g., "11 Diamonds", "Weekly Pass")
+  isWinner  Boolean  @default(false)
+  isClaimed Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+// ကြိုတင်သတ်မှတ်ထားမည့်သူများ (Rigged System အတွက်)
+model PredefinedWinner {
+  id         Int    @id @default(autoincrement())
+  telegramId BigInt @unique
+  prizeType  String // "WEEKLY_PASS" သို့မဟုတ် "1049_DIA"
 }
 
 enum HighLowChoice {
