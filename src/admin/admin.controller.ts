@@ -171,30 +171,30 @@ export class AdminController {
   }
 
   // 2. Winner အသစ်သတ်မှတ်ခြင်း (CREATE / UPDATE)
-  @Post('lucky-draw/rigged')
-  async setRiggedWinner(
-    @Body() body: { telegramId: string; prizeType: string },
-  ) {
-    const { telegramId, prizeType } = body;
+  // @Post('lucky-draw/rigged')
+  // async setRiggedWinner(
+  //   @Body() body: { telegramId: string; prizeType: string },
+  // ) {
+  //   const { telegramId, prizeType } = body;
 
-    if (!telegramId || !prizeType) {
-      throw new BadRequestException('Telegram ID နှင့် Prize Type လိုအပ်ပါသည်');
-    }
+  //   if (!telegramId || !prizeType) {
+  //     throw new BadRequestException('Telegram ID နှင့် Prize Type လိုအပ်ပါသည်');
+  //   }
 
-    const result = await this.prisma.predefinedWinner.upsert({
-      where: { telegramId: BigInt(telegramId) },
-      update: { prizeType },
-      create: {
-        telegramId: BigInt(telegramId),
-        prizeType,
-      },
-    });
+  //   const result = await this.prisma.predefinedWinner.upsert({
+  //     where: { telegramId: BigInt(telegramId) },
+  //     update: { prizeType },
+  //     create: {
+  //       telegramId: BigInt(telegramId),
+  //       prizeType,
+  //     },
+  //   });
 
-    return {
-      success: true,
-      data: { ...result, telegramId: result.telegramId.toString() },
-    };
-  }
+  //   return {
+  //     success: true,
+  //     data: { ...result, telegramId: result.telegramId.toString() },
+  //   };
+  // }
 
   // 3. Rigged စာရင်းမှ ဖျက်ခြင်း (DELETE)
   @Delete('lucky-draw/rigged/:id')
@@ -332,6 +332,57 @@ export class AdminController {
     } catch (error) {
       throw new NotFoundException('ဖျက်လိုသော data ရှာမတွေ့ပါ');
     }
+  }
+  // 2. Winner အသစ်သတ်မှတ်ခြင်း (CREATE / UPDATE with Participant Check)
+  @Post('lucky-draw/rigged')
+  async setRiggedWinner(
+    @Body() body: { telegramId: string; prizeType: string },
+  ) {
+    const { telegramId, prizeType } = body;
+
+    if (!telegramId || !prizeType) {
+      throw new BadRequestException('Telegram ID နှင့် Prize Type လိုအပ်ပါသည်');
+    }
+
+    // ၁။ Participant List ထဲမှာ ဒီ User ရှိမရှိ အရင်စစ်ဆေးပါ
+    const participant = await this.prisma.luckyDrawParticipant.findFirst({
+      where: {
+        user: {
+          telegramId: BigInt(telegramId),
+        },
+      },
+      include: { user: true },
+    });
+
+    if (!participant) {
+      throw new NotFoundException(
+        'ဤ Telegram ID သည် ကံစမ်းမဲစာရင်း (Participant List) ထဲတွင် မရှိသေးပါ။',
+      );
+    }
+
+    // ၂။ ရှိတယ်ဆိုရင် Predefined table မှာ သိမ်းမယ် (သို့) Update လုပ်မယ်
+    const result = await this.prisma.predefinedWinner.upsert({
+      where: { telegramId: BigInt(telegramId) },
+      update: {
+        prizeType,
+        // Optional: track who they are in the log
+      },
+      create: {
+        telegramId: BigInt(telegramId),
+        prizeType,
+      },
+    });
+
+    return {
+      success: true,
+      message: `${participant.accName} ကို ${prizeType} အဖြစ် သတ်မှတ်လိုက်ပါပြီ။`,
+      data: {
+        ...result,
+        telegramId: result.telegramId.toString(),
+        accName: participant.accName, // Frontend မှာ ပြဖို့ Name ပါ ထည့်ပေးလိုက်မယ်
+        ticketId: participant.ticketId,
+      },
+    };
   }
 
   @Get('orders')
