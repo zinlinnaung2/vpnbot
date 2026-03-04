@@ -493,10 +493,12 @@ export class BotUpdate {
       // ၇။ Admin Channel သို့ အချက်အလက်များ လှမ်းပို့ခြင်း
       const adminChannelId = process.env.ADMIN_CHANNEL_ID || '-100XXXXXXXXX';
       const adminMessage =
-        `🎁 <b>Lucky Draw Claim Request</b>\n\n` +
-        `👤 <b>User:</b> ${myParticipation.user.firstName}\n` +
-        `🆔 <b>ID:</b> <code>${myParticipation.playerId}</code> (${myParticipation.serverId})\n` +
-        `🏆 <b>Prize:</b> ${myParticipation.prize}`;
+        `🎁 <b>Lucky Draw ဆုလာဘ် တောင်းဆိုမှု (Claim)</b>\n\n` +
+        `👤 <b>Telegram အမည်:</b> ${myParticipation.user.firstName}\n` +
+        `🎟 <b>Ticket ID:</b> <code>${myParticipation.ticketId}</code>\n` +
+        `🏆 <b>ဆုအမျိုးအစား:</b> ${myParticipation.prize}\n\n` +
+        `🎮 <b>Game Account Name:</b> ${myParticipation.accName}\n` +
+        `🆔 <b>ID:</b> <code>${myParticipation.playerId} (${myParticipation.serverId}) </code> \n`;
 
       await ctx.telegram.sendMessage(adminChannelId, adminMessage, {
         parse_mode: 'HTML',
