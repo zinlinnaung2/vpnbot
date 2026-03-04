@@ -13,61 +13,67 @@ export class LuckyDrawService {
 
   async startDraw() {
     try {
-      // 1. Fetch all participants and the rigging instructions
+      // 1. အချက်အလက်များ ဆွဲထုတ်ခြင်း
       const participants = await this.prisma.luckyDrawParticipant.findMany({
         include: { user: true },
       });
 
-      // We clone the list so we can safely remove winners as they are picked
-      let remainingPool = [...participants];
+      if (participants.length === 0) return;
 
       const predefinedWinners = await this.prisma.predefinedWinner.findMany();
-      // Clone predefined winners to manage multiple riggings for the same prize type
-      let rigPool = [...predefinedWinners];
 
+      // 2. Logic အသစ်: Rigged ထားတဲ့သူတွေကို Random နှိုက်မယ့် pool ထဲကနေ ကြိုဖယ်ထုတ်ထားမယ်
+      // ဒါမှ သူတို့အတွက် သတ်မှတ်ထားတဲ့ ဆုအလှည့်မရောက်မချင်း Random နဲ့ မတော်တဆ မပေါက်မှာ ဖြစ်ပါတယ်။
+      let randomPool = participants.filter((p) => {
+        return !predefinedWinners.some(
+          (rig) => BigInt(rig.telegramId) === BigInt(p.user.telegramId),
+        );
+      });
+
+      // Rigged စာရင်းကို Clone လုပ်ထားမယ်
+      let rigPool = [...predefinedWinners];
       const winnersList = [];
 
-      // 2. Define the prize structure
+      // 3. ဆုများ သတ်မှတ်ချက်
       const prizes = [
         { name: '1st Prize 1049 Dia', key: '1049_DIA', count: 1 },
         { name: '2nd Prize Weekly Pass', key: 'WEEKLY_PASS', count: 2 },
         { name: '3rd Prize 11 Dia', key: '11_DIA', count: 10 },
       ];
 
-      // 3. Main Drawing Logic
+      // 4. Drawing Logic
       for (const p of prizes) {
         for (let i = 0; i < p.count; i++) {
           let winner = null;
 
           // A. RIGGED LOGIC
-          // Check if there is a predefined winner for this specific prize category
+          // လက်ရှိ ပတ်နေတဲ့ Prize Key (e.g., 1049_DIA) နဲ့ ကိုက်ညီတဲ့ Rigged winner ရှိမရှိ စစ်မယ်
           const rigIndex = rigPool.findIndex((rp) => rp.prizeType === p.key);
 
           if (rigIndex !== -1) {
             const targetRig = rigPool[rigIndex];
 
-            // Find this person in the current participant pool
-            const participantIndex = remainingPool.findIndex(
+            // Participants အားလုံးထဲကနေ အဲ့ဒီ Rigged ဖြစ်တဲ့သူကို ရှာမယ်
+            const participantIndex = participants.findIndex(
               (part) =>
                 BigInt(part.user.telegramId) === BigInt(targetRig.telegramId),
             );
 
             if (participantIndex !== -1) {
-              // Successfully found the rigged user in the pool
-              winner = remainingPool.splice(participantIndex, 1)[0];
-              // Remove this instruction so it's not used again
+              winner = participants[participantIndex];
+              // Instructions ထဲကနေ ဖယ်ထုတ်မယ် (တစ်ခါပဲ ပေါက်စေချင်လို့)
               rigPool.splice(rigIndex, 1);
             }
           }
 
           // B. RANDOM LOGIC
-          // If no rigged winner was found for this slot, pick someone randomly
-          if (!winner && remainingPool.length > 0) {
-            const randomIdx = Math.floor(Math.random() * remainingPool.length);
-            winner = remainingPool.splice(randomIdx, 1)[0];
+          // အကယ်၍ Rigged winner မရှိဘူးဆိုရင် (သို့မဟုတ်) ရွေးပြီးသွားပြီဆိုရင် RandomPool ထဲက နှိုက်မယ်
+          if (!winner && randomPool.length > 0) {
+            const randomIdx = Math.floor(Math.random() * randomPool.length);
+            winner = randomPool.splice(randomIdx, 1)[0];
           }
 
-          // C. SAVE TO DATABASE
+          // C. Database တွင် အနိုင်ရသူအဖြစ် Update လုပ်ခြင်း
           if (winner) {
             winnersList.push({ ...winner, prizeName: p.name });
 
@@ -82,7 +88,7 @@ export class LuckyDrawService {
         }
       }
 
-      // 4. Construct Results Message
+      // 5. ရလဒ်စာသား ပြင်ဆင်ခြင်း
       let summaryMsg = `🎉 <b>Lucky Draw Results (အယောက် ၁၀၀ ပြည့်)</b> 🎉\n`;
       summaryMsg += `━━━━━━━━━━━━━━━━━━━━\n\n`;
 
@@ -97,11 +103,7 @@ export class LuckyDrawService {
       summaryMsg += `\n━━━━━━━━━━━━━━━━━━━━\n`;
       summaryMsg += `🎊 ကံထူးရှင်များအားလုံး ဂုဏ်ယူပါတယ်ခင်ဗျာ။`;
 
-      // 5. Broadcast to all participants
-      // Using Promise.allSettled to ensure one failure doesn't stop the whole broadcast
-      // ... inside startDraw() after the summaryMsg is built
-
-      // 5. Broadcast to all participants
+      // 6. ပါဝင်သူအားလုံးကို ရလဒ်များ Broadcast လုပ်ခြင်း
       await Promise.allSettled(
         participants.map(async (p) => {
           try {
