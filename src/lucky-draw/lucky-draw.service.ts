@@ -70,6 +70,9 @@ export class LuckyDrawService {
           if (!winner) {
             // မပေါက်သေးတဲ့သူတွေထဲကမှ Rigged List ထဲမှာ (တခြားဆုအတွက်) မပါသေးတဲ့သူတွေကိုပဲ Pool ထဲထည့်မယ်
             const pool = participants.filter((pPart) => {
+              // --- ပြင်ဆင်ချက်- prize field မှာ data (5% coupon စသည်) ရှိနေသူများကို ဖယ်ထုတ်ရန် ---
+              if (pPart.prize !== null) return false;
+
               if (usedParticipantIds.has(pPart.id)) return false;
 
               // တခြားဆုအတွက် Rigged လုပ်ထားခံရသူဖြစ်ရင် Random pool ထဲမှာ မပါစေရဘူး
@@ -123,7 +126,6 @@ export class LuckyDrawService {
       summaryMsg += `🎁 <b>ဆုလာဘ် ထုတ်ယူရန်အတွက်:</b>\n`;
       summaryMsg += `Menu ရှိ "🎁 ဆုလာဘ်ထုတ်ယူရန်" ခလုတ်ကို နှိပ်၍ Admin ထံသို့ တောင်းဆိုမှု ပေးပို့နိုင်ပါပြီခင်ဗျာ။`;
 
-      // 6. Broadcast လုပ်ခြင်း
       // 6. Broadcast လုပ်ခြင်း (Personalized Messages)
       await Promise.allSettled(
         participants.map(async (p) => {
@@ -137,15 +139,17 @@ export class LuckyDrawService {
             if (!isMainWinner) {
               // --- မဲမပေါက်သူများအတွက် (နှစ်သိမ့်ဆု 5% Coupon ထည့်ပေးခြင်း) ---
 
-              // 1. Database မှာ 5% Coupon ကို သိမ်းဆည်းမယ် (GamePurchaseScene က ဒါကို ရှာမှာဖြစ်လို့ စာသားမှန်ဖို့ လိုပါတယ်)
-              await this.prisma.luckyDrawParticipant.update({
-                where: { id: p.id },
-                data: {
-                  prize: '5% Discount Coupon', // စာသားအတိအကျ ဖြစ်ရပါမယ်
-                  isWinner: false,
-                  isClaimed: false, // မသုံးရသေးကြောင်း အမှတ်အသားပြုခြင်း
-                },
-              });
+              // အကယ်၍ လူကြီးမင်း Manual ပေးထားလို့ Prize ရှိပြီးသားသူဆိုရင် DB မှာ ထပ် Update မလုပ်တော့ဘဲ Message ပဲ ပို့ပေးမယ်
+              if (p.prize === null) {
+                await this.prisma.luckyDrawParticipant.update({
+                  where: { id: p.id },
+                  data: {
+                    prize: '5% Discount Coupon',
+                    isWinner: false,
+                    isClaimed: false,
+                  },
+                });
+              }
 
               // 2. User ဆီ ပို့မယ့် Message ကို ဆက်ရေးမယ်
               finalMessage += `\n\n🎁 <b>နှစ်သိမ့်ဆု (Consolation Prize)</b> 🎁\n`;
@@ -156,7 +160,6 @@ export class LuckyDrawService {
               finalMessage += `နောက်တစ်ကြိမ် ဂိမ်းပစ္စည်းများ ဝယ်ယူသည့်အခါ System မှ ဤ Coupon ကို <b>အလိုအလျောက်</b> စစ်ဆေးပေးမှာဖြစ်ပြီး 5% Discount နှုတ်ပေးသွားမှာ ဖြစ်ပါတယ်ခင်ဗျာ။`;
             } else {
               // --- မဲပေါက်သူများအတွက် ---
-              // ရှေ့က Main Loop မှာ Prize ကို Update လုပ်ပြီးသား ဖြစ်ရပါမယ်။
               finalMessage += `\n\n🎊 <b>ဂုဏ်ယူပါတယ် လူကြီးမင်းရှင့်!</b>\n`;
               finalMessage += `လူကြီးမင်းသည် ကံထူးရှင်စာရင်းတွင် ပါဝင်သောကြောင့် ဆုလာဘ်ထုတ်ယူရန် Menu ရှိ "🎁 ဆုလာဘ်ထုတ်ယူရန်" ခလုတ်ကို နှိပ်၍ Admin ထံ Request ပို့ပေးပါခင်ဗျာ။`;
             }
