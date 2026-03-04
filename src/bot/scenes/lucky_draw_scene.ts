@@ -193,16 +193,15 @@ export class LuckyDrawWizard {
 
       // --- NOTIFY ADMIN WHEN 100 IS REACHED ---
       const newCount = count + 1;
-      if (newCount >= 1) {
+      if (newCount === 1) {
+        // လူ ၁၀၀ အတိအကျ ပြည့်မှ ပို့မည်
         const adminMsg =
-          `📢 <b>Lucky Draw Participant ပြည့်သွားပါပြီ!</b>\n\n` +
+          `📢 <b>Lucky Draw Participant ၁၀၀ ပြည့်သွားပါပြီ!</b>\n\n` +
           `စုစုပေါင်း: <b>${newCount} / 100</b>\n` +
-          `နောက်ဆုံးစာရင်းသွင်းသူ: <b>${accName}</b>\n` +
-          `User: <a href="tg://user?id=${telegramId}">${username}</a>\n\n` +
+          `နောက်ဆုံးစာရင်းသွင်းသူ: <b>${accName}</b>\n\n` +
           `Lucky Draw စတင်ရန် အောက်က Button ကို နှိပ်ပါ -`;
 
-        // Send to Admin Channel/ID
-        await ctx.telegram.sendMessage(process.env.ADMIN_ID, adminMsg, {
+        await ctx.telegram.sendMessage(process.env.ADMIN_CHANNEL_ID, adminMsg, {
           parse_mode: 'HTML',
           ...Markup.inlineKeyboard([
             [

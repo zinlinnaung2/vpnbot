@@ -7,6 +7,7 @@ import {
   InjectBot,
   Hears,
   On,
+  Context,
 } from 'nestjs-telegraf';
 import { Telegraf, Markup } from 'telegraf';
 import { UsersService } from '../users/users.service';
@@ -397,6 +398,26 @@ export class BotUpdate {
     } catch (error) {
       console.error('Critical Error in startDraw:', error);
     }
+  }
+
+  @Action('admin_start_lucky_draw')
+  async onAdminStartDraw(@Context() ctx: any) {
+    // Admin ဟုတ်မဟုတ် စစ်ဆေးခြင်း
+    if (String(ctx.from.id) !== process.env.ADMIN_ID) {
+      return ctx.answerCbQuery('❌ သင်သည် Admin မဟုတ်ပါ။');
+    }
+
+    await ctx.answerCbQuery('Lucky Draw စတင်နေပါပြီ...');
+
+    // ခလုတ်ကို ပြန်ဖျက်ခြင်း သို့မဟုတ် စာသားပြောင်းခြင်း
+    await ctx.editMessageText(
+      '🎊 Lucky Draw ကို စတင်လိုက်ပါပြီ။ ရလဒ်များကို Broadcast လုပ်နေပါသည်။',
+      {
+        parse_mode: 'HTML',
+      },
+    );
+
+    return this.drawService.startDraw();
   }
 
   @Action('start_lucky_draw')
