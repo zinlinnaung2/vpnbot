@@ -459,14 +459,15 @@ export class BotUpdate {
       }
 
       // 🌟 ၃။ ပြင်ဆင်လိုက်သော Condition - Lucky Draw မစတင်ရသေးလျှင်
-      // Winner ရှိမရှိ စစ်မည့်အစား Prize (ဆု/Coupon) တစ်ခုခု သတ်မှတ်ပြီးသူ ရှိမရှိ စစ်ဆေးခြင်း
-      const drawFinished = await this.prisma.luckyDrawParticipant.findFirst({
+      // prize အစား isWinner: true (အဓိကဆုပေါက်သူ) ရှိမရှိနဲ့ စစ်ပါမယ်။
+      // ဒါမှသာ Manual coupon ပေးထားသူတွေအတွက် Draw မစခင် "မစသေးပါ" လို့ မှန်မှန်ကန်ကန် ပြမှာပါ။
+      const mainWinnerExist = await this.prisma.luckyDrawParticipant.findFirst({
         where: {
-          prize: { not: null },
+          isWinner: true,
         },
       });
 
-      if (!drawFinished) {
+      if (!mainWinnerExist) {
         // ၁။ လက်ရှိ ပါဝင်သူ အရေအတွက်ကို စစ်ဆေးခြင်း
         const currentCount = await this.prisma.luckyDrawParticipant.count();
         const totalLimit = 100;
@@ -499,7 +500,7 @@ export class BotUpdate {
           `😞 <b>ကံမထူးခဲ့ပါဘူး</b>\n\n` +
             `လူကြီးမင်းသည် ယခုအပတ် Lucky Draw တွင် အဓိကဆုကြီးများ မပေါက်ခဲ့သော်လည်း နှစ်သိမ့်ဆုအဖြစ် <b>5% Discount Coupon</b> ရရှိထားပါတယ်ခင်ဗျာ။\n\n` +
             `🎟 Coupon ID: <code>5OFF-${myParticipation.ticketId}</code>\n` +
-            `ဂိမ်းပစ္စည်းများ ဝယ်ယူသည့်အခါ System မှ အလိုအလျောက် ခုနှိမ်ပေးသွားမည် ဖြစ်ပါသည်။`,
+            `ဂိမ်းပစ္စည်းများ ဝယ်ယူသည့်အခါ System မှ အလိုအလျောက် ခုနှိမ်ပေးသွားမှာ ဖြစ်ပါသည်။`,
           { parse_mode: 'HTML', ...MAIN_KEYBOARD },
         );
         return;
