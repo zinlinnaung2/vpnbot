@@ -3,6 +3,7 @@ import { LuckyDrawService } from 'src/lucky-draw/lucky-draw.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Markup } from 'telegraf';
 import axios from 'axios';
+import { MAIN_KEYBOARD } from '../bot.update';
 
 @Wizard('lucky_draw_scene')
 export class LuckyDrawWizard {
@@ -187,7 +188,7 @@ export class LuckyDrawWizard {
       // User Confirmation
       await ctx.reply(
         `✅ စာရင်းသွင်းမှု အောင်မြင်ပါသည်!\n🎫 သင်၏ Ticket ID: <b>${ticketId}</b>\n\nအယောက် ၁၀၀ ပြည့်ပါက Admin မှ Lucky Draw စတင်ပေးပါမည်။`,
-        { parse_mode: 'HTML', ...Markup.removeKeyboard() },
+        { parse_mode: 'HTML', ...MAIN_KEYBOARD },
       );
 
       // --- NOTIFY ADMIN WHEN 100 IS REACHED ---
