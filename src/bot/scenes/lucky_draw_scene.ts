@@ -13,37 +13,32 @@ export class LuckyDrawWizard {
 
   @WizardStep(1)
   async step1(@Context() ctx: any) {
-    // FIX: Pass Markup directly as the second argument
     await ctx.reply(
       '🎮 Lucky Draw ပါဝင်ရန် လူကြီးမင်း၏ MLBB Player ID ကို ရိုက်ထည့်ပေးပါ -',
       Markup.keyboard([['🚫 မဝယ်တော့ပါ (Cancel)']]).resize(),
     );
-    await ctx.wizard.next();
-    return;
+    return ctx.wizard.next();
   }
 
   @WizardStep(2)
   async step2(@Context() ctx: any, @Message('text') msg: string) {
     if (msg === '🚫 မဝယ်တော့ပါ (Cancel)') return ctx.scene.leave();
 
-    // Validation: Ensure input is a number
     if (isNaN(Number(msg))) {
       await ctx.reply(
         '❌ Player ID သည် ဂဏန်းများသာ ဖြစ်ရပါမည်။ ပြန်ရိုက်ပေးပါ -',
       );
-      return; // Stay on step 2
+      return;
     }
 
     ctx.wizard.state.playerId = msg;
 
-    // FIX: Pass Markup directly
     await ctx.reply(
       '🌐 Server ID ကို ရိုက်ထည့်ပေးပါ (ဥပမာ - 1234) -',
       Markup.keyboard([['🚫 မဝယ်တော့ပါ (Cancel)']]).resize(),
     );
 
-    await ctx.wizard.next();
-    return;
+    return ctx.wizard.next();
   }
 
   @WizardStep(3)
@@ -68,7 +63,6 @@ export class LuckyDrawWizard {
         const nickname = res.data.result.nickname;
         ctx.wizard.state.accName = nickname;
 
-        // FIX: Here we use spread because we are combining parse_mode with the keyboard
         await ctx.reply(
           `👤 <b>အကောင့်အမည်တွေ့ရှိချက်:</b>\n\n` +
             `အမည်: <b>${nickname}</b>\n` +
@@ -94,17 +88,16 @@ export class LuckyDrawWizard {
         );
       } else {
         await ctx.reply(
-          '❌ စိတ်မကောင်းပါဘူး၊ လူကြီးမင်းရိုက်ထည့်လိုက်သော ID/Server ကို ရှာမတွေ့ပါ။\n\nကျေးဇူးပြု၍ ID မှန်ကန်အောင် ပြန်လည်ရိုက်ထည့်ပေးပါ -',
+          '❌ ID/Server ရှာမတွေ့ပါ။ ID မှန်ကန်အောင် ပြန်လည်ရိုက်ထည့်ပေးပါ -',
         );
-        return ctx.wizard.selectStep(0); // Go back to start
+        return ctx.wizard.selectStep(0);
       }
     } catch (e) {
       await ctx.telegram
         .deleteMessage(ctx.chat.id, loading.message_id)
         .catch(() => {});
-
       await ctx.reply(
-        '⚠️ အကောင့်စစ်ဆေး၍မရပါ။။ ကျေးဇူးပြု၍ ခဏနေမှ ပြန်လည်ကြိုးစားပေးပါ သို့မဟုတ် ID ကို ပြန်လည်စစ်ဆေးပြီး ရိုက်ထည့်ပါ -',
+        '⚠️ အကောင့်စစ်ဆေး၍မရပါ။ ပြန်လည်စစ်ဆေးပြီး ရိုက်ထည့်ပါ -',
         Markup.inlineKeyboard([
           [
             Markup.button.callback(
@@ -129,12 +122,7 @@ export class LuckyDrawWizard {
   async onRestart(@Context() ctx: any) {
     await ctx.answerCbQuery();
     await ctx.deleteMessage().catch(() => {});
-
-    // 1. Reset the wizard index to the beginning
     ctx.wizard.selectStep(0);
-
-    // 2. You MUST manually call the step function or send the message
-    // so the user knows they are back at Step 1.
     return this.step1(ctx);
   }
 
@@ -142,7 +130,6 @@ export class LuckyDrawWizard {
   async onExit(@Context() ctx: any) {
     await ctx.answerCbQuery();
     await ctx.deleteMessage().catch(() => {});
-    // FIX: Pass removeKeyboard directly
     await ctx.reply(
       '🚫 ကံစမ်းမဲအစီအစဉ်မှ ထွက်လိုက်ပါပြီ။',
       Markup.removeKeyboard(),
@@ -150,9 +137,18 @@ export class LuckyDrawWizard {
     return ctx.scene.leave();
   }
 
+  // --- ADMIN ACTION HANDLER ---
+  @Action('admin_start_lucky_draw')
+  async onAdminStartDraw(@Context() ctx: any) {
+    await ctx.answerCbQuery('Lucky Draw စတင်နေပါပြီ...');
+    await ctx.editMessageCaption('🎊 Lucky Draw ကို စတင်လိုက်ပါပြီ။');
+    return this.luckyDrawService.startDraw();
+  }
+
   async finalRegistration(ctx: any) {
     const { playerId, serverId, accName } = ctx.wizard.state;
     const telegramId = ctx.from.id;
+    const username = ctx.from.username || ctx.from.first_name;
 
     try {
       const user = await this.prisma.user.findUnique({
@@ -174,7 +170,7 @@ export class LuckyDrawWizard {
       const count = await this.prisma.luckyDrawParticipant.count();
       if (count >= 100) {
         await ctx.reply(
-          '❌ စိတ်မကောင်းပါဘူး၊ ကံစမ်းမဲအယောက် ၁၀၀ ပြည့်သွားပါပြီ။',
+          '❌ စိတ်မကောင်းပါဘူး၊ လူဦးရေ ၁၀၀ ပြည့်သွားပါပြီ။',
           Markup.removeKeyboard(),
         );
         return ctx.scene.leave();
@@ -183,34 +179,43 @@ export class LuckyDrawWizard {
       const ticketId = `TKT-${Math.floor(1000 + Math.random() * 9000)}`;
 
       await this.prisma.luckyDrawParticipant.create({
-        data: {
-          userId: user.id,
-          playerId,
-          serverId,
-          accName,
-          ticketId,
-        },
+        data: { userId: user.id, playerId, serverId, accName, ticketId },
       });
 
+      // User Confirmation
       await ctx.reply(
-        `✅ စာရင်းသွင်းမှု အောင်မြင်ပါသည်!\n🎫 သင်၏ Ticket ID: <b>${ticketId}</b>\n\nအယောက် ၁၀၀ ပြည့်ပါက Lucky Draw အလိုအလျောက် စတင်ပါမည်။`,
+        `✅ စာရင်းသွင်းမှု အောင်မြင်ပါသည်!\n🎫 သင်၏ Ticket ID: <b>${ticketId}</b>\n\nအယောက် ၁၀၀ ပြည့်ပါက Admin မှ Lucky Draw စတင်ပေးပါမည်။`,
         { parse_mode: 'HTML', ...Markup.removeKeyboard() },
       );
 
-      if (count + 1 >= 2) {
-        await ctx.reply(
-          '🎊 ဂုဏ်ယူပါတယ်! အယောက် ၁၀၀ ပြည့်သွားပြီဖြစ်တဲ့အတွက် Lucky Draw ကို အခုပဲ စတင်ပါတော့မယ်။',
-        );
-        this.luckyDrawService.startDraw();
+      // --- NOTIFY ADMIN WHEN 100 IS REACHED ---
+      const newCount = count + 1;
+      if (newCount >= 100) {
+        const adminMsg =
+          `📢 <b>Lucky Draw Participant ပြည့်သွားပါပြီ!</b>\n\n` +
+          `စုစုပေါင်း: <b>${newCount} / 100</b>\n` +
+          `နောက်ဆုံးစာရင်းသွင်းသူ: <b>${accName}</b>\n` +
+          `User: <a href="tg://user?id=${telegramId}">${username}</a>\n\n` +
+          `Lucky Draw စတင်ရန် အောက်က Button ကို နှိပ်ပါ -`;
+
+        // Send to Admin Channel/ID
+        await ctx.telegram.sendMessage(process.env.ADMIN_ID, adminMsg, {
+          parse_mode: 'HTML',
+          ...Markup.inlineKeyboard([
+            [
+              Markup.button.callback(
+                '🚀 Start Lucky Draw Now',
+                'admin_start_lucky_draw',
+              ),
+            ],
+          ]),
+        });
       }
 
       return ctx.scene.leave();
     } catch (err) {
       console.error(err);
-      await ctx.reply(
-        '❌ မှတ်တမ်းတင်ရာတွင် အမှားအယွင်းရှိခဲ့ပါသည်။',
-        Markup.removeKeyboard(),
-      );
+      await ctx.reply('❌ အမှားအယွင်းရှိခဲ့ပါသည်။', Markup.removeKeyboard());
       return ctx.scene.leave();
     }
   }
