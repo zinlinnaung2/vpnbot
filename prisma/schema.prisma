@@ -153,17 +153,18 @@ model Withdraw {
 
 // ကံစမ်းမဲ ပါဝင်သူများစာရင်း
 model LuckyDrawParticipant {
-  id        Int      @id @default(autoincrement())
-  ticketId  String   @unique // e.g., TICKET-12345
-  userId    Int      @unique
-  user      User     @relation(fields: [userId], references: [id])
-  playerId  String
-  serverId  String
-  accName   String
-  prize     String? // ဘယ်ဆုပေါက်လဲ (e.g., "11 Diamonds", "Weekly Pass")
-  isWinner  Boolean  @default(false)
-  isClaimed Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id          Int      @id @default(autoincrement())
+  ticketId    String   @unique // e.g., TICKET-12345
+  userId      Int      @unique
+  user        User     @relation(fields: [userId], references: [id])
+  playerId    String
+  serverId    String
+  accName     String
+  prize       String? // ဘယ်ဆုပေါက်လဲ (e.g., "11 Diamonds", "Weekly Pass")
+  isWinner    Boolean  @default(false)
+  isClaimed   Boolean  @default(false)
+  isRequested Boolean  @default(false)
+  createdAt   DateTime @default(now())
 }
 
 // ကြိုတင်သတ်မှတ်ထားမည့်သူများ (Rigged System အတွက်)
