@@ -15,14 +15,16 @@ export class LuckyDrawWizard {
   async step1(@Context() ctx: any) {
     await ctx.reply(
       '🎮 Lucky Draw ပါဝင်ရန် လူကြီးမင်း၏ MLBB Player ID ကို ရိုက်ထည့်ပေးပါ -',
-      Markup.keyboard([['🚫 မဝယ်တော့ပါ (Cancel)']]).resize(),
+      {
+        ...Markup.keyboard([['🚫 မပါဝင်တော့ပါ (Cancel)']]).resize(),
+      },
     );
     return ctx.wizard.next();
   }
 
   @WizardStep(2)
   async step2(@Context() ctx: any, @Message('text') msg: string) {
-    if (msg === '🚫 မဝယ်တော့ပါ (Cancel)') return ctx.scene.leave();
+    if (msg === '🚫 မပါဝင်တော့ပါ (Cancel)') return ctx.scene.leave();
 
     // Basic validation to ensure it's a number
     if (isNaN(Number(msg))) {
@@ -32,14 +34,16 @@ export class LuckyDrawWizard {
       return; // Stay on this step until valid input
     }
 
-    ctx.wizard.state.playerId = msg;
-    await ctx.reply('🌐 Server ID ကို ရိုက်ထည့်ပေးပါ (ဥပမာ - 1234) -');
+    await ctx.reply('🌐 Server ID ကို ရိုက်ထည့်ပေးပါ (ဥပမာ - 1234) -', {
+      ...Markup.keyboard([['🚫 မပါဝင်တော့ပါ (Cancel)']]).resize(),
+    });
+
     return ctx.wizard.next();
   }
 
   @WizardStep(3)
   async step3(@Context() ctx: any, @Message('text') msg: string) {
-    if (msg === '🚫 မဝယ်တော့ပါ (Cancel)') return ctx.scene.leave();
+    if (msg === '🚫 မပါဝင်တော့ပါ (Cancel)') return ctx.scene.leave();
     ctx.wizard.state.serverId = msg;
 
     const { playerId, serverId } = ctx.wizard.state;
