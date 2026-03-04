@@ -197,7 +197,7 @@ export class LuckyDrawWizard {
         { parse_mode: 'HTML', ...Markup.removeKeyboard() },
       );
 
-      if (count + 1 >= 1) {
+      if (count + 1 >= 2) {
         await ctx.reply(
           '🎊 ဂုဏ်ယူပါတယ်! အယောက် ၁၀၀ ပြည့်သွားပြီဖြစ်တဲ့အတွက် Lucky Draw ကို အခုပဲ စတင်ပါတော့မယ်။',
         );
