@@ -1,11 +1,4 @@
-import {
-  Wizard,
-  WizardStep,
-  Context,
-  On,
-  Message,
-  Action,
-} from 'nestjs-telegraf';
+import { Wizard, WizardStep, Context, Message, Action } from 'nestjs-telegraf';
 import { LuckyDrawService } from 'src/lucky-draw/lucky-draw.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { Markup } from 'telegraf';
@@ -24,15 +17,24 @@ export class LuckyDrawWizard {
       '🎮 Lucky Draw ပါဝင်ရန် လူကြီးမင်း၏ MLBB Player ID ကို ရိုက်ထည့်ပေးပါ -',
       Markup.keyboard([['🚫 မဝယ်တော့ပါ (Cancel)']]).resize(),
     );
-    ctx.wizard.next();
+    return ctx.wizard.next();
   }
 
   @WizardStep(2)
   async step2(@Context() ctx: any, @Message('text') msg: string) {
     if (msg === '🚫 မဝယ်တော့ပါ (Cancel)') return ctx.scene.leave();
+
+    // Basic validation to ensure it's a number
+    if (isNaN(Number(msg))) {
+      await ctx.reply(
+        '❌ Player ID သည် ဂဏန်းများသာ ဖြစ်ရပါမည်။ ပြန်ရိုက်ပေးပါ -',
+      );
+      return; // Stay on this step until valid input
+    }
+
     ctx.wizard.state.playerId = msg;
     await ctx.reply('🌐 Server ID ကို ရိုက်ထည့်ပေးပါ (ဥပမာ - 1234) -');
-    ctx.wizard.next();
+    return ctx.wizard.next();
   }
 
   @WizardStep(3)
@@ -44,7 +46,6 @@ export class LuckyDrawWizard {
     const loading = await ctx.reply('⏳ အကောင့်အမည် စစ်ဆေးနေပါသည်...');
 
     try {
-      // --- API Validation ---
       const res = await axios.get(
         `https://cekidml.caliph.dev/api/validasi?id=${playerId}&serverid=${serverId}`,
         { timeout: 8000 },
@@ -82,27 +83,22 @@ export class LuckyDrawWizard {
           },
         );
       } else {
-        // Validation Failed - No manual entry allowed
+        // Validation Failed: Re-request Player ID directly
         await ctx.reply(
-          '❌ စိတ်မကောင်းပါဘူး၊ လူကြီးမင်းရိုက်ထည့်လိုက်သော ID/Server ကို ရှာမတွေ့ပါ။\n\nကျေးဇူးပြု၍ ID မှန်ကန်အောင် ပြန်လည်ရိုက်ထည့်ပေးပါ -',
+          '❌ ID/Server ရှာမတွေ့ပါ။ Player ID ကို ပြန်လည်စစ်ဆေးပြီး ရိုက်ထည့်ပေးပါ -',
         );
-        return ctx.wizard.selectStep(0); // Back to Player ID input
+        return ctx.wizard.selectStep(0);
       }
     } catch (e) {
       await ctx.telegram
         .deleteMessage(ctx.chat.id, loading.message_id)
         .catch(() => {});
 
-      // Connection Error / API Down - No manual entry allowed
+      // Connection Error: Forced choices (Retype or Exit)
       await ctx.reply(
-        '⚠️ အကောင့်စစ်ဆေး၍မရပါ။။ ကျေးဇူးပြု၍ ခဏနေမှ ပြန်လည်ကြိုးစားပေးပါ သို့မဟုတ် ID ကို ပြန်လည်စစ်ဆေးပြီး ရိုက်ထည့်ပါ -',
+        '⚠️ အကောင့်စစ်ဆေး၍မရပါ။ ID ကို ပြန်လည်စစ်ဆေးပြီး ရိုက်ထည့်ပေးပါ -',
         Markup.inlineKeyboard([
-          [
-            Markup.button.callback(
-              '🔄 ပြန်လည်ကြိုးစားမည်',
-              'restart_lucky_input',
-            ),
-          ],
+          [Markup.button.callback('🔄 ပြန်ရိုက်မည်', 'restart_lucky_input')],
           [Markup.button.callback('🚫 ထွက်မည်', 'exit_lucky_draw')],
         ]),
       );
@@ -120,7 +116,7 @@ export class LuckyDrawWizard {
   async onRestart(@Context() ctx: any) {
     await ctx.answerCbQuery();
     await ctx.deleteMessage().catch(() => {});
-    await ctx.reply('🔄 ကျေးဇူးပြု၍ Player ID ပြန်ရိုက်ပေးပါ -');
+    // Jump to step 0 so step1()'s logic handles the "one-time" request
     return ctx.wizard.selectStep(0);
   }
 
@@ -137,15 +133,12 @@ export class LuckyDrawWizard {
     const telegramId = ctx.from.id;
 
     try {
-      // Check if user already joined
+      const user = await this.prisma.user.findUnique({
+        where: { telegramId: BigInt(telegramId) },
+      });
+
       const existing = await this.prisma.luckyDrawParticipant.findUnique({
-        where: {
-          userId: (
-            await this.prisma.user.findUnique({
-              where: { telegramId: BigInt(telegramId) },
-            })
-          ).id,
-        },
+        where: { userId: user.id },
       });
 
       if (existing) {
@@ -161,9 +154,6 @@ export class LuckyDrawWizard {
         return ctx.scene.leave();
       }
 
-      const user = await this.prisma.user.findUnique({
-        where: { telegramId: BigInt(telegramId) },
-      });
       const ticketId = `TKT-${Math.floor(1000 + Math.random() * 9000)}`;
 
       await this.prisma.luckyDrawParticipant.create({
