@@ -19,7 +19,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LuckyDrawService } from 'src/lucky-draw/lucky-draw.service';
 
 export const MAIN_KEYBOARD = Markup.keyboard([
-  ['🎟️ MLBB Lucky Draw'],
+  ['🎟️ MLBB Lucky Draw', '🎁 ဆုလာဘ်ထုတ်ယူရန်'],
   ['🛒 စျေးဝယ်မယ်', '📝 စျေးဝယ်မှတ်တမ်း'], // ခလုတ်အသစ်ထည့်လိုက်သည်
   ['💰 လက်ကျန်ငွေ', '➕ ငွေဖြည့်မယ်'],
   ['💸 ငွေထုတ်မယ်', '👥 ဖိတ်ခေါ်မယ်'],
@@ -283,6 +283,73 @@ export class BotUpdate {
         ],
       },
     });
+  }
+
+  @Hears('🎁 ဆုလာဘ်ထုတ်ယူရန်')
+  async onWithdrawPrize(@Ctx() ctx: BotContext) {
+    const telegramId = ctx.from.id;
+    const totalTarget = 200;
+
+    try {
+      // ၁။ လက်ရှိ ပါဝင်သူ အရေအတွက်ကို စစ်မယ်
+      const currentCount = await this.prisma.luckyDrawParticipant.count();
+
+      // ၂။ ကံစမ်းမဲ ဖောက်ပြီးပြီလား သိနိုင်အောင် Winner စာရင်း ရှိမရှိ စစ်မယ်
+      const winnersExist = await this.prisma.luckyDrawParticipant.findFirst({
+        where: { isWinner: true },
+      });
+
+      // --- Lucky Draw မစတင်သေးပါက ---
+      if (!winnersExist) {
+        const leftCount = totalTarget - currentCount;
+
+        const statusMessage =
+          `⏳ <b>Lucky Draw မစတင်သေးပါဘူးခင်ဗျာ</b>\n\n` +
+          `လူဦးရေ ၂၀၀ ပြည့်မှသာ ကံထူးရှင်များကို Bot မှ အလိုအလျောက် ရွေးချယ်ပေးသွားမှာ ဖြစ်ပါတယ်။\n\n` +
+          `📊 <b>ပါဝင်မှု အခြေအနေ:</b>\n` +
+          `• လက်ရှိပါဝင်သူ: <b>${currentCount}</b> ဦး\n` +
+          `• လိုအပ်သေးသူ: <b>${leftCount <= 0 ? 0 : leftCount}</b> ဦး\n\n` +
+          `<i>အယောက် ၂၀၀ ပြည့်သည်အထိ ခေတ္တစောင့်ဆိုင်းပေးပါရန် မေတ္တာရပ်ခံအပ်ပါသည်။</i>`;
+
+        return await ctx.reply(statusMessage, { parse_mode: 'HTML' });
+      }
+
+      // --- Lucky Draw ပြီးသွားပါက (Winner စစ်ဆေးခြင်း) ---
+      const myParticipation = await this.prisma.luckyDrawParticipant.findFirst({
+        where: {
+          user: { telegramId: BigInt(telegramId) },
+        },
+      });
+
+      if (!myParticipation) {
+        return await ctx.reply(
+          '❌ လူကြီးမင်းသည် ယခုအပတ် Lucky Draw တွင် ပါဝင်ထားခြင်း မရှိပါဘူးခင်ဗျာ။',
+        );
+      }
+
+      if (myParticipation.isWinner) {
+        if (myParticipation.isClaimed) {
+          return await ctx.reply(
+            '✅ လူကြီးမင်း ဆုလာဘ်ကို ထုတ်ယူပြီးသား ဖြစ်ပါတယ်ခင်ဗျာ။',
+          );
+        }
+
+        return await ctx.reply(
+          `🎉 <b>ဂုဏ်ယူပါတယ်ခင်ဗျာ!</b>\n\n` +
+            `လူကြီးမင်းသည် <b>${myParticipation.prize}</b> ကို ကံထူးထားပါသည်။\n` +
+            `Ticket ID: <code>${myParticipation.ticketId}</code>\n\n` +
+            `ဆုလာဘ်ထုတ်ယူရန်အတွက် အထက်ပါ Ticket ID နှင့်အတူ Admin (@your_admin_username) ထံသို့ ဆက်သွယ်ပေးပါရန်။`,
+          { parse_mode: 'HTML' },
+        );
+      } else {
+        return await ctx.reply(
+          `😞 စိတ်မကောင်းပါဘူးခင်ဗျာ။\n\nယခုတစ်ခေါက် Lucky Draw မှာ လူကြီးမင်း ကံမပါသေးပါဘူး။ နောက်တစ်ပတ် အစီအစဉ်မှာ ပြန်လည်ပါဝင်ပေးပါဦး။`,
+        );
+      }
+    } catch (error) {
+      console.error('Withdraw Prize Error:', error);
+      await ctx.reply('❌ အချက်အလက် စစ်ဆေးရာတွင် အမှားအယွင်း ရှိနေပါသည်။');
+    }
   }
 
   @Command('balance')
