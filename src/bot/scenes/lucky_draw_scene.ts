@@ -193,7 +193,7 @@ export class LuckyDrawWizard {
 
       // --- NOTIFY ADMIN WHEN 100 IS REACHED ---
       const newCount = count + 1;
-      if (newCount === 1) {
+      if (newCount === 100) {
         // လူ ၁၀၀ အတိအကျ ပြည့်မှ ပို့မည်
         const adminMsg =
           `📢 <b>Lucky Draw Participant ၁၀၀ ပြည့်သွားပါပြီ!</b>\n\n` +
