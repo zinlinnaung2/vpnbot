@@ -21,6 +21,9 @@ interface GamePurchaseState {
   quantity?: number;
   waitingForQuantity?: boolean;
   waitingForPhoto?: boolean;
+  // Promo handling fields
+  participantId?: number;
+  usePromo?: boolean;
 }
 
 @Scene('game_purchase_scene')
@@ -92,14 +95,14 @@ export class GamePurchaseScene {
       return ctx.scene.leave();
     }
 
-    // ၁။ Photo လက်ခံခြင်း (Step 4)
+    // ၁။ Photo လက်ခံခြင်း
     if (state.waitingForPhoto) {
       if (!msg.photo)
         return ctx.reply('⚠️ ကျေးဇူးပြု၍ ငွေလွှဲပြေစာ ပုံပို့ပေးပါ။');
       return this.handlePhotoUpload(ctx, msg.photo);
     }
 
-    // ၂။ အရေအတွက် လက်ခံခြင်း (Step 3)
+    // ၂။ အရေအတွက် လက်ခံခြင်း
     if (state.waitingForQuantity) {
       const qty = parseInt(text);
       if (isNaN(qty) || qty <= 0) {
@@ -109,10 +112,10 @@ export class GamePurchaseScene {
       }
       state.quantity = qty;
       state.waitingForQuantity = false;
-      return this.askForPayment(ctx);
+      return this.checkUserPromo(ctx, state); // အရေအတွက်ရရင် Promo ရှိမရှိ စစ်မည်
     }
 
-    // ၃။ Player ID လက်ခံခြင်း (Step 1)
+    // ၃။ Player ID လက်ခံခြင်း
     if (!state.playerId) {
       state.playerId = text;
       const isMLBB =
@@ -126,15 +129,65 @@ export class GamePurchaseScene {
         return;
       } else {
         state.serverId = 'N/A';
-        return this.askForQuantity(ctx); // MLBB မဟုတ်လျှင် အရေအတွက် တန်းမေးမယ်
+        return this.askForQuantity(ctx);
       }
     }
 
-    // ၄။ Server ID လက်ခံခြင်း (Step 2 - MLBB Only)
+    // ၄။ Server ID လက်ခံခြင်း (MLBB Only)
     if (!state.serverId) {
       state.serverId = text;
       return this.validateMLBB(ctx, state);
     }
+  }
+
+  // --- Promo Coupon စစ်ဆေးသည့်အပိုင်း ---
+  async checkUserPromo(ctx: BotContext, state: GamePurchaseState) {
+    const user = await this.prisma.user.findUnique({
+      where: { telegramId: BigInt(ctx.from.id) },
+    });
+
+    const promo = await this.prisma.luckyDrawParticipant.findFirst({
+      where: {
+        userId: user.id,
+        prize: '5% Discount Coupon',
+        isClaimed: false,
+      },
+    });
+
+    if (promo) {
+      state.participantId = promo.id;
+      await ctx.reply(
+        `🎁 <b>ပရိုမိုကုဒ် တွေ့ရှိပါသည်!</b>\n\n` +
+          `လူကြီးမင်းတွင် <b>5% Discount Coupon</b> တစ်ခု ရှိပါသည်။ ယခုဝယ်ယူမှုတွင် အသုံးပြုမည်လား?`,
+        {
+          parse_mode: 'HTML',
+          ...Markup.inlineKeyboard([
+            [Markup.button.callback('✅ အသုံးပြုမည်', 'use_promo_yes')],
+            [Markup.button.callback('❌ အသုံးမပြုပါ', 'use_promo_no')],
+          ]),
+        },
+      );
+    } else {
+      return this.askForPayment(ctx);
+    }
+  }
+
+  @Action('use_promo_yes')
+  async onPromoYes(@Ctx() ctx: BotContext) {
+    const state = ctx.scene.state as GamePurchaseState;
+    state.usePromo = true;
+    await ctx.answerCbQuery('Promo Applied! (5% လျှော့ပေးထားပါသည်)');
+    await ctx.deleteMessage().catch(() => {});
+    return this.askForPayment(ctx);
+  }
+
+  @Action('use_promo_no')
+  async onPromoNo(@Ctx() ctx: BotContext) {
+    const state = ctx.scene.state as GamePurchaseState;
+    state.usePromo = false;
+    await ctx.answerCbQuery();
+    await ctx.deleteMessage().catch(() => {});
+    return this.askForPayment(ctx);
   }
 
   async validateMLBB(ctx: BotContext, state: GamePurchaseState) {
@@ -144,7 +197,6 @@ export class GamePurchaseScene {
         `https://cekidml.caliph.dev/api/validasi?id=${state.playerId}&serverid=${state.serverId}`,
         { timeout: 8000 },
       );
-
       await ctx.telegram
         .deleteMessage(ctx.chat.id, loading.message_id)
         .catch(() => {});
@@ -198,7 +250,7 @@ export class GamePurchaseScene {
   async onConfirm(@Ctx() ctx: BotContext) {
     await ctx.answerCbQuery();
     await ctx.deleteMessage().catch(() => {});
-    return this.askForQuantity(ctx); // Verification ပြီးရင် အရေအတွက် အရင်မေးမယ်
+    return this.askForQuantity(ctx);
   }
 
   async askForQuantity(ctx: BotContext) {
@@ -222,13 +274,22 @@ export class GamePurchaseScene {
 
     const unitPrice = Number(state.product.price);
     const qty = state.quantity || 1;
-    const totalPrice = unitPrice * qty;
+    let totalPrice = unitPrice * qty;
+    let discountInfo = '';
+
+    // Promo သုံးထားလျှင် ဈေးနှုန်းလျှော့တွက်ရန်
+    if (state.usePromo) {
+      const discount = totalPrice * 0.05;
+      totalPrice = totalPrice - discount;
+      discountInfo = `🎁 Promo Discount (5%): <b>-${discount.toLocaleString()} MMK</b>\n`;
+    }
 
     const paymentInfo =
       `🏦 <b>ငွေပေးချေရန် အချက်အလက်များ</b>\n` +
       `----------------------------------\n` +
       `📦 ပစ္စည်း: <b>${state.product.name}</b>\n` +
       `🔢 အရေအတွက်: <b>${qty}</b>\n` +
+      discountInfo +
       `💰 စုစုပေါင်းကျသင့်ငွေ: <b>${totalPrice.toLocaleString()} MMK</b>\n` +
       `----------------------------------\n\n` +
       `💎 <b>KBZ Pay / Wave</b> : <code>09447032756</code>\n` +
@@ -236,7 +297,7 @@ export class GamePurchaseScene {
       `အထက်ပါအကောင့်သို့ ငွေလွှဲပြီးပါက <b>ငွေလွှဲပြေစာ (Screenshot)</b> ကို ပေးပို့ပေးပါခင်ဗျာ။`;
 
     await ctx.reply(paymentInfo, {
-      parse_mode: 'HTML', // MarkdownV2 အစား HTML သုံးခြင်းဖြင့် Error ကို ဖြေရှင်းသည်
+      parse_mode: 'HTML',
       ...Markup.keyboard([['🚫 မဝယ်တော့ပါ (Cancel)']]).resize(),
     });
   }
@@ -244,7 +305,12 @@ export class GamePurchaseScene {
   async handlePhotoUpload(ctx: BotContext, photoArray: any[]) {
     const state = ctx.scene.state as GamePurchaseState;
     const qty = state.quantity || 1;
-    const totalPrice = Number(state.product.price) * qty;
+    let totalPrice = Number(state.product.price) * qty;
+
+    if (state.usePromo) {
+      totalPrice = totalPrice * 0.95; // 5% Discount
+    }
+
     const loading = await ctx.reply('⏳ အော်ဒါတင်နေပါသည်...');
 
     try {
@@ -255,6 +321,7 @@ export class GamePurchaseScene {
         where: { telegramId: BigInt(ctx.from.id) },
       });
 
+      // ၁။ Purchase ဖန်တီးခြင်း
       const purchase = await this.prisma.purchase.create({
         data: {
           userId: user.id,
@@ -268,14 +335,23 @@ export class GamePurchaseScene {
         },
       });
 
+      // ၂။ Promo Coupon ကို Claimed အဖြစ် ပြောင်းလဲခြင်း
+      if (state.usePromo && state.participantId) {
+        await this.prisma.luckyDrawParticipant.update({
+          where: { id: state.participantId },
+          data: { isClaimed: true },
+        });
+      }
+
+      const promoBadge = state.usePromo ? `\n🎟 Promo: <b>5% Used</b>` : '';
+
       const adminMsg =
         `🛒 <b>Order အသစ် (Direct Pay)</b>\n\n` +
         `📦 ပစ္စည်း: <b>${state.product.name}</b>\n` +
         `🔢 အရေအတွက်: <b>${qty}</b>\n` +
-        `💰 စုစုပေါင်း: <b>${totalPrice.toLocaleString()} MMK</b>\n` +
+        `💰 စုစုပေါင်း: <b>${totalPrice.toLocaleString()} MMK</b>${promoBadge}\n` +
         `🎮 Nick: <b>${state.nickname || 'N/A'}</b>\n` +
         `🆔 ID: <code>${state.playerId} (${state.serverId})</code>\n` +
-        // `🌏 Server: <code>${state.serverId}</code>\n` +
         `👤 User: <a href="tg://user?id=${user.telegramId}">${user.firstName}</a>`;
 
       await ctx.telegram.sendPhoto(process.env.ADMIN_CHANNEL_ID, fileId, {
