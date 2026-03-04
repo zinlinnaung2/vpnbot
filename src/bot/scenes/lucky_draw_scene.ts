@@ -17,7 +17,8 @@ export class LuckyDrawWizard {
       '🎮 Lucky Draw ပါဝင်ရန် လူကြီးမင်း၏ MLBB Player ID ကို ရိုက်ထည့်ပေးပါ -',
       Markup.keyboard([['🚫 မဝယ်တော့ပါ (Cancel)']]).resize(),
     );
-    return ctx.wizard.next();
+    await ctx.wizard.next();
+    return;
   }
 
   @WizardStep(2)
@@ -38,7 +39,8 @@ export class LuckyDrawWizard {
       Markup.keyboard([['🚫 မဝယ်တော့ပါ (Cancel)']]).resize(),
     );
 
-    return ctx.wizard.next();
+    await ctx.wizard.next();
+    return;
   }
 
   @WizardStep(3)
@@ -190,7 +192,7 @@ export class LuckyDrawWizard {
 
       // --- NOTIFY ADMIN WHEN 100 IS REACHED ---
       const newCount = count + 1;
-      if (newCount >= 100) {
+      if (newCount >= 1) {
         const adminMsg =
           `📢 <b>Lucky Draw Participant ပြည့်သွားပါပြီ!</b>\n\n` +
           `စုစုပေါင်း: <b>${newCount} / 100</b>\n` +
