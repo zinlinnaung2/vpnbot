@@ -39,19 +39,19 @@ export class GamePurchaseScene {
     const currentHour = mmTime.getHours();
 
     // မနက် 10:00 မှ ည 12:00 အတွင်းသာ ခွင့်ပြုမည်
-    if (currentHour < 10 || currentHour >= 24) {
-      await ctx.reply(
-        '🙏 <b>လူကြီးမင်းခင်ဗျာ...</b>\n\n' +
-          'ကျွန်တော်တို့၏ ဝန်ဆောင်မှုကို <b>မနက် (10:00 AM) မှ ည (12:00 AM)</b> အတွင်းသာ ' +
-          'အကောင်းဆုံး ဝန်ဆောင်မှု ပေးလျက်ရှိပါသည်ခင်ဗျာ။\n\n' +
-          'ယခုအချိန်တွင် ခေတ္တပိတ်ထားပါသဖြင့် သတ်မှတ်ချိန်အတွင်း ပြန်လာခဲ့ပါရန် မေတ္တာရပ်ခံအပ်ပါသည်။ 🙏',
-        {
-          parse_mode: 'HTML',
-          ...MAIN_KEYBOARD,
-        },
-      );
-      return ctx.scene.leave();
-    }
+    // if (currentHour < 10 || currentHour >= 24) {
+    //   await ctx.reply(
+    //     '🙏 <b>လူကြီးမင်းခင်ဗျာ...</b>\n\n' +
+    //       'ကျွန်တော်တို့၏ ဝန်ဆောင်မှုကို <b>မနက် (10:00 AM) မှ ည (12:00 AM)</b> အတွင်းသာ ' +
+    //       'အကောင်းဆုံး ဝန်ဆောင်မှု ပေးလျက်ရှိပါသည်ခင်ဗျာ။\n\n' +
+    //       'ယခုအချိန်တွင် ခေတ္တပိတ်ထားပါသဖြင့် သတ်မှတ်ချိန်အတွင်း ပြန်လာခဲ့ပါရန် မေတ္တာရပ်ခံအပ်ပါသည်။ 🙏',
+    //     {
+    //       parse_mode: 'HTML',
+    //       ...MAIN_KEYBOARD,
+    //     },
+    //   );
+    //   return ctx.scene.leave();
+    // }
 
     const state = ctx.scene.state as GamePurchaseState;
 
