@@ -284,6 +284,24 @@ export class BotUpdate {
       },
     });
   }
+  @Action('start_lucky_draw')
+  async onStartLuckyDraw(@Ctx() ctx: BotContext) {
+    // 1. Loading icon လေး ပျောက်သွားအောင် answer အရင်လုပ်ပေးရပါမယ်
+    await ctx.answerCbQuery();
+
+    // 2. လက်ရှိ message (အညွှန်းစာ) ကို ဖျက်ချင်ရင် ဖျက်လို့ရပါတယ် (Optional)
+    await ctx.deleteMessage().catch(() => {});
+
+    // 3. Lucky Draw Wizard Scene ထဲသို့ အသစ်ဝင်ခိုင်းလိုက်မယ်
+    try {
+      await ctx.scene.enter('lucky_draw_scene');
+    } catch (e) {
+      console.error('Scene Entry Error:', e);
+      await ctx.reply(
+        '❌ ခေတ္တချို့ယွင်းချက်ရှိနေပါသည်။ နောက်မှ ထပ်မံကြိုးစားပေးပါ။',
+      );
+    }
+  }
 
   @Hears('🎁 ဆုလာဘ်ထုတ်ယူရန်')
   async onWithdrawPrize(@Ctx() ctx: BotContext) {
