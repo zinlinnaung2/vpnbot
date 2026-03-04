@@ -517,7 +517,7 @@ export class BotUpdate {
           `🎉 <b>ဂုဏ်ယူပါတယ်ခင်ဗျာ!</b>\n\n` +
             `လူကြီးမင်းသည် <b>${myParticipation.prize}</b> ကို ကံထူးထားပါသည်။\n` +
             `✅ ဆုလာဘ်ထုတ်ယူရန် တောင်းဆိုမှုကို Admin ထံသို့ ပေးပို့လိုက်ပါပြီ။ Game Account ထဲသို့ စိန်များ ဝင်ရောက်လာသည်အထိ ခေတ္တစောင့်ဆိုင်းပေးပါခင်ဗျာ။`,
-          { parse_mode: 'HTML' },
+          { parse_mode: 'HTML', ...MAIN_KEYBOARD },
         );
         return;
       } else {
