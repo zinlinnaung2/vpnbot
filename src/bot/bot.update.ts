@@ -445,10 +445,7 @@ export class BotUpdate {
     const totalTarget = 100;
 
     try {
-      // ၁။ လက်ရှိ ပါဝင်သူ အရေအတွက်ကို စစ်မယ်
       const currentCount = await this.prisma.luckyDrawParticipant.count();
-
-      // ၂။ ကံစမ်းမဲ ဖောက်ပြီးပြီလား သိနိုင်အောင် Winner စာရင်း ရှိမရှိ စစ်မယ်
       const winnersExist = await this.prisma.luckyDrawParticipant.findFirst({
         where: { isWinner: true },
       });
@@ -456,7 +453,6 @@ export class BotUpdate {
       // --- Lucky Draw မစတင်သေးပါက ---
       if (!winnersExist) {
         const leftCount = totalTarget - currentCount;
-
         const statusMessage =
           `⏳ <b>Lucky Draw မစတင်သေးပါဘူးခင်ဗျာ</b>\n\n` +
           `လူဦးရေ ၁၀၀ ပြည့်မှသာ ကံထူးရှင်များကို Bot မှ အလိုအလျောက် ရွေးချယ်ပေးသွားမှာ ဖြစ်ပါတယ်။\n\n` +
@@ -470,10 +466,12 @@ export class BotUpdate {
       }
 
       // --- Lucky Draw ပြီးသွားပါက (Winner စစ်ဆေးခြင်း) ---
+      // 💡 User ရဲ့ အမည်ကို ယူနိုင်ရန် `include: { user: true }` ထည့်ထားပါသည်။
       const myParticipation = await this.prisma.luckyDrawParticipant.findFirst({
         where: {
           user: { telegramId: BigInt(telegramId) },
         },
+        include: { user: true },
       });
 
       if (!myParticipation) {
@@ -489,11 +487,36 @@ export class BotUpdate {
           );
         }
 
+        // ၁။ Admin Channel သို့ အချက်အလက်များ လှမ်းပို့ခြင်း
+        const adminChannelId = process.env.ADMIN_CHANNEL_ID || '-100XXXXXXXXX'; // သင့် Admin Channel ID ထည့်ပါ (eg. -1002052753323)
+
+        // 💡 LuckyDrawParticipant Table ထဲက playerId, serverId နဲ့ accName တွေကို ယူသုံးထားပါသည်။
+        const adminMessage =
+          `🎁 <b>Lucky Draw ဆုလာဘ် တောင်းဆိုမှု (Claim)</b>\n\n` +
+          `👤 <b>Telegram အမည်:</b> ${myParticipation.user.firstName}\n` +
+          `🎟 <b>Ticket ID:</b> <code>${myParticipation.ticketId}</code>\n` +
+          `🏆 <b>ဆုအမျိုးအစား:</b> ${myParticipation.prize}\n\n` +
+          `🎮 <b>Game Account Name:</b> ${myParticipation.accName}\n` +
+          `🆔 <b>Player ID:</b> <code>${myParticipation.playerId}</code>\n` +
+          `🌍 <b>Server ID:</b> <code>${myParticipation.serverId}</code>\n`;
+
+        await ctx.telegram.sendMessage(adminChannelId, adminMessage, {
+          parse_mode: 'HTML',
+          ...Markup.inlineKeyboard([
+            [
+              Markup.button.callback(
+                '✅ စိန်ဖြည့်ပေးပြီးပါပြီ (Confirm)',
+                `confirm_prize_${myParticipation.id}`,
+              ),
+            ],
+          ]),
+        });
+
+        // ၂။ User အား အကြောင်းကြားခြင်း
         return await ctx.reply(
           `🎉 <b>ဂုဏ်ယူပါတယ်ခင်ဗျာ!</b>\n\n` +
             `လူကြီးမင်းသည် <b>${myParticipation.prize}</b> ကို ကံထူးထားပါသည်။\n` +
-            `Ticket ID: <code>${myParticipation.ticketId}</code>\n\n` +
-            `ဆုလာဘ်ထုတ်ယူရန်အတွက် အထက်ပါ Ticket ID နှင့်အတူ Admin (@your_admin_username) ထံသို့ ဆက်သွယ်ပေးပါရန်။`,
+            `✅ ဆုလာဘ်ထုတ်ယူရန် တောင်းဆိုမှုကို Admin ထံသို့ ပေးပို့လိုက်ပါပြီ။ Game Account ထဲသို့ စိန်များ ဝင်ရောက်လာသည်အထိ ခေတ္တစောင့်ဆိုင်းပေးပါခင်ဗျာ။`,
           { parse_mode: 'HTML' },
         );
       } else {
@@ -504,6 +527,45 @@ export class BotUpdate {
     } catch (error) {
       console.error('Withdraw Prize Error:', error);
       await ctx.reply('❌ အချက်အလက် စစ်ဆေးရာတွင် အမှားအယွင်း ရှိနေပါသည်။');
+    }
+  }
+
+  @Action(/^confirm_prize_(.+)$/)
+  async onConfirmPrize(@Ctx() ctx: BotContext) {
+    // @ts-ignore
+    const participantId = parseInt(ctx.match[1]);
+
+    try {
+      // ၁။ Database တွင် Claim လုပ်ပြီးကြောင်း (isClaimed: true) ပြောင်းလဲမှတ်သားခြင်း
+      const participation = await this.prisma.luckyDrawParticipant.update({
+        where: { id: participantId },
+        data: { isClaimed: true },
+        include: { user: true }, // User ရဲ့ telegramId ကို သိဖို့ လိုအပ်ပါသည်
+      });
+
+      // ၂။ Admin Channel မှ စာကို Update လုပ်ပြီး ခလုတ်ကို ဖျောက်လိုက်ခြင်း (COMPLETED စာတန်းပြောင်းခြင်း)
+      const originalText = (ctx.callbackQuery.message as any).text || '';
+      await ctx.editMessageText(
+        `${originalText}\n\n✅ <b>STATUS: COMPLETED (စိန်ဖြည့်ပေးပြီးပါပြီ - ${ctx.from.first_name})</b>`,
+        { parse_mode: 'HTML' },
+      );
+
+      // ၃။ ကံထူးရှင် (User) ထံသို့ စိန်ဖြည့်သွင်းပေးပြီးကြောင်း Noti ပေးပို့ခြင်း
+      await ctx.telegram.sendMessage(
+        Number(participation.user.telegramId),
+        `🎉 <b>ဆုလာဘ် ရရှိပါပြီ!</b>\n\n` +
+          `လူကြီးမင်း ကံထူးထားသော <b>${participation.prize}</b> ကို Game Account ထဲသို့ အောင်မြင်စွာ ထည့်သွင်းပေးလိုက်ပါပြီခင်ဗျာ။\n` +
+          `ကံစမ်းပေးတဲ့အတွက် ကျေးဇူးအထူးတင်ရှိပါတယ်။`,
+        { parse_mode: 'HTML' },
+      );
+
+      // ၄။ Button Loading ပျောက်ရန်
+      await ctx.answerCbQuery('ဆုလာဘ် ပေးအပ်ခြင်း အောင်မြင်ပါသည်။');
+    } catch (error) {
+      console.error('Confirm Prize Error:', error);
+      await ctx.answerCbQuery('❌ အမှားအယွင်းဖြစ်ပေါ်နေပါသည်။', {
+        show_alert: true,
+      });
     }
   }
 
