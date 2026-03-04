@@ -129,7 +129,13 @@ export class LuckyDrawWizard {
   async onRestart(@Context() ctx: any) {
     await ctx.answerCbQuery();
     await ctx.deleteMessage().catch(() => {});
-    return ctx.wizard.selectStep(0);
+
+    // 1. Reset the wizard index to the beginning
+    ctx.wizard.selectStep(0);
+
+    // 2. You MUST manually call the step function or send the message
+    // so the user knows they are back at Step 1.
+    return this.step1(ctx);
   }
 
   @Action('exit_lucky_draw')
