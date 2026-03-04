@@ -13,12 +13,10 @@ export class LuckyDrawWizard {
 
   @WizardStep(1)
   async step1(@Context() ctx: any) {
-    // FIX: Using spread operator to wrap the keyboard in an options object
+    // FIX: Pass Markup directly as the second argument
     await ctx.reply(
       '🎮 Lucky Draw ပါဝင်ရန် လူကြီးမင်း၏ MLBB Player ID ကို ရိုက်ထည့်ပေးပါ -',
-      {
-        ...Markup.keyboard([['🚫 မဝယ်တော့ပါ (Cancel)']]).resize(),
-      },
+      Markup.keyboard([['🚫 မဝယ်တော့ပါ (Cancel)']]).resize(),
     );
     return ctx.wizard.next();
   }
@@ -32,15 +30,16 @@ export class LuckyDrawWizard {
       await ctx.reply(
         '❌ Player ID သည် ဂဏန်းများသာ ဖြစ်ရပါမည်။ ပြန်ရိုက်ပေးပါ -',
       );
-      return; // Stay on the same step
+      return; // Stay on step 2
     }
 
     ctx.wizard.state.playerId = msg;
 
-    // FIX: Spread keyboard to prevent [object Object]
-    await ctx.reply('🌐 Server ID ကို ရိုက်ထည့်ပေးပါ (ဥပမာ - 1234) -', {
-      ...Markup.keyboard([['🚫 မဝယ်တော့ပါ (Cancel)']]).resize(),
-    });
+    // FIX: Pass Markup directly
+    await ctx.reply(
+      '🌐 Server ID ကို ရိုက်ထည့်ပေးပါ (ဥပမာ - 1234) -',
+      Markup.keyboard([['🚫 မဝယ်တော့ပါ (Cancel)']]).resize(),
+    );
 
     return ctx.wizard.next();
   }
@@ -67,6 +66,7 @@ export class LuckyDrawWizard {
         const nickname = res.data.result.nickname;
         ctx.wizard.state.accName = nickname;
 
+        // FIX: Here we use spread because we are combining parse_mode with the keyboard
         await ctx.reply(
           `👤 <b>အကောင့်အမည်တွေ့ရှိချက်:</b>\n\n` +
             `အမည်: <b>${nickname}</b>\n` +
@@ -94,7 +94,7 @@ export class LuckyDrawWizard {
         await ctx.reply(
           '❌ စိတ်မကောင်းပါဘူး၊ လူကြီးမင်းရိုက်ထည့်လိုက်သော ID/Server ကို ရှာမတွေ့ပါ။\n\nကျေးဇူးပြု၍ ID မှန်ကန်အောင် ပြန်လည်ရိုက်ထည့်ပေးပါ -',
         );
-        return ctx.wizard.selectStep(0); // Go back to step 1
+        return ctx.wizard.selectStep(0); // Go back to start
       }
     } catch (e) {
       await ctx.telegram
@@ -103,17 +103,15 @@ export class LuckyDrawWizard {
 
       await ctx.reply(
         '⚠️ အကောင့်စစ်ဆေး၍မရပါ။။ ကျေးဇူးပြု၍ ခဏနေမှ ပြန်လည်ကြိုးစားပေးပါ သို့မဟုတ် ID ကို ပြန်လည်စစ်ဆေးပြီး ရိုက်ထည့်ပါ -',
-        {
-          ...Markup.inlineKeyboard([
-            [
-              Markup.button.callback(
-                '🔄 ပြန်လည်ကြိုးစားမည်',
-                'restart_lucky_input',
-              ),
-            ],
-            [Markup.button.callback('🚫 ထွက်မည်', 'exit_lucky_draw')],
-          ]),
-        },
+        Markup.inlineKeyboard([
+          [
+            Markup.button.callback(
+              '🔄 ပြန်လည်ကြိုးစားမည်',
+              'restart_lucky_input',
+            ),
+          ],
+          [Markup.button.callback('🚫 ထွက်မည်', 'exit_lucky_draw')],
+        ]),
       );
     }
   }
@@ -129,7 +127,6 @@ export class LuckyDrawWizard {
   async onRestart(@Context() ctx: any) {
     await ctx.answerCbQuery();
     await ctx.deleteMessage().catch(() => {});
-    // This will trigger step1 automatically
     return ctx.wizard.selectStep(0);
   }
 
@@ -137,10 +134,11 @@ export class LuckyDrawWizard {
   async onExit(@Context() ctx: any) {
     await ctx.answerCbQuery();
     await ctx.deleteMessage().catch(() => {});
-    // FIX: Wrapped removeKeyboard in an options object
-    await ctx.reply('🚫 ကံစမ်းမဲအစီအစဉ်မှ ထွက်လိုက်ပါပြီ။', {
-      ...Markup.removeKeyboard(),
-    });
+    // FIX: Pass removeKeyboard directly
+    await ctx.reply(
+      '🚫 ကံစမ်းမဲအစီအစဉ်မှ ထွက်လိုက်ပါပြီ။',
+      Markup.removeKeyboard(),
+    );
     return ctx.scene.leave();
   }
 
@@ -158,9 +156,10 @@ export class LuckyDrawWizard {
       });
 
       if (existing) {
-        await ctx.reply('⚠️ လူကြီးမင်းသည် စာရင်းသွင်းပြီးသားဖြစ်ပါသည်။', {
-          ...Markup.removeKeyboard(),
-        });
+        await ctx.reply(
+          '⚠️ လူကြီးမင်းသည် စာရင်းသွင်းပြီးသားဖြစ်ပါသည်။',
+          Markup.removeKeyboard(),
+        );
         return ctx.scene.leave();
       }
 
@@ -168,7 +167,7 @@ export class LuckyDrawWizard {
       if (count >= 100) {
         await ctx.reply(
           '❌ စိတ်မကောင်းပါဘူး၊ ကံစမ်းမဲအယောက် ၁၀၀ ပြည့်သွားပါပြီ။',
-          { ...Markup.removeKeyboard() },
+          Markup.removeKeyboard(),
         );
         return ctx.scene.leave();
       }
@@ -190,8 +189,7 @@ export class LuckyDrawWizard {
         { parse_mode: 'HTML', ...Markup.removeKeyboard() },
       );
 
-      // Changed from 3 to 100 as per your logic
-      if (count + 1 >= 100) {
+      if (count + 1 >= 1) {
         await ctx.reply(
           '🎊 ဂုဏ်ယူပါတယ်! အယောက် ၁၀၀ ပြည့်သွားပြီဖြစ်တဲ့အတွက် Lucky Draw ကို အခုပဲ စတင်ပါတော့မယ်။',
         );
@@ -201,9 +199,10 @@ export class LuckyDrawWizard {
       return ctx.scene.leave();
     } catch (err) {
       console.error(err);
-      await ctx.reply('❌ မှတ်တမ်းတင်ရာတွင် အမှားအယွင်းရှိခဲ့ပါသည်။', {
-        ...Markup.removeKeyboard(),
-      });
+      await ctx.reply(
+        '❌ မှတ်တမ်းတင်ရာတွင် အမှားအယွင်းရှိခဲ့ပါသည်။',
+        Markup.removeKeyboard(),
+      );
       return ctx.scene.leave();
     }
   }
