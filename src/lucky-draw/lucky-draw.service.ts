@@ -11,7 +11,7 @@ export class LuckyDrawService {
   ) {}
 
   async startDraw() {
-    // ၁။ ပါဝင်သူ ၂၀၀ လုံးကို ဆွဲထုတ်မယ်
+    // ၁။ ပါဝင်သူ ၁၀၀ လုံးကို ဆွဲထုတ်မယ်
     const participants = await this.prisma.luckyDrawParticipant.findMany({
       include: { user: true },
     });
@@ -63,7 +63,7 @@ export class LuckyDrawService {
     }
 
     // ၄။ Summary Message တည်ဆောက်ခြင်း (သင်အလိုရှိတဲ့ Format)
-    let summaryMsg = `🎉 <b>Lucky Draw Results (အယောက် ၂၀၀ ပြည့်)</b> 🎉\n`;
+    let summaryMsg = `🎉 <b>Lucky Draw Results (အယောက် ၁၀၀ ပြည့်)</b> 🎉\n`;
     summaryMsg += `━━━━━━━━━━━━━━━━━━━━\n\n`;
 
     winnersList.forEach((w, index) => {
@@ -73,7 +73,7 @@ export class LuckyDrawService {
     summaryMsg += `\n━━━━━━━━━━━━━━━━━━━━\n`;
     summaryMsg += `🎊 ကံထူးရှင်များအားလုံး ဂုဏ်ယူပါတယ်ခင်ဗျာ။`;
 
-    // ၅။ အယောက် ၂၀၀ လုံးဆီ တစ်ပြိုင်နက် ပို့ခြင်း (Broadcast)
+    // ၅။ အယောက် ၁၀၀ လုံးဆီ တစ်ပြိုင်နက် ပို့ခြင်း (Broadcast)
     for (const p of participants) {
       try {
         await this.bot.telegram.sendMessage(

@@ -154,9 +154,9 @@ export class LuckyDrawWizard {
       }
 
       const count = await this.prisma.luckyDrawParticipant.count();
-      if (count >= 200) {
+      if (count >= 100) {
         await ctx.reply(
-          '❌ စိတ်မကောင်းပါဘူး၊ ကံစမ်းမဲအယောက် ၂၀၀ ပြည့်သွားပါပြီ။',
+          '❌ စိတ်မကောင်းပါဘူး၊ ကံစမ်းမဲအယောက် ၁၀၀ ပြည့်သွားပါပြီ။',
         );
         return ctx.scene.leave();
       }
@@ -177,13 +177,13 @@ export class LuckyDrawWizard {
       });
 
       await ctx.reply(
-        `✅ စာရင်းသွင်းမှု အောင်မြင်ပါသည်!\n🎫 သင်၏ Ticket ID: <b>${ticketId}</b>\n\nအယောက် ၂၀၀ ပြည့်ပါက Lucky Draw အလိုအလျောက် စတင်ပါမည်။`,
+        `✅ စာရင်းသွင်းမှု အောင်မြင်ပါသည်!\n🎫 သင်၏ Ticket ID: <b>${ticketId}</b>\n\nအယောက် ၁၀၀ ပြည့်ပါက Lucky Draw အလိုအလျောက် စတင်ပါမည်။`,
         { parse_mode: 'HTML' },
       );
 
-      if (count + 1 >= 200) {
+      if (count + 1 >= 100) {
         await ctx.reply(
-          '🎊 ဂုဏ်ယူပါတယ်! အယောက် ၂၀၀ ပြည့်သွားပြီဖြစ်တဲ့အတွက် Lucky Draw ကို အခုပဲ စတင်ပါတော့မယ်။',
+          '🎊 ဂုဏ်ယူပါတယ်! အယောက် ၁၀၀ ပြည့်သွားပြီဖြစ်တဲ့အတွက် Lucky Draw ကို အခုပဲ စတင်ပါတော့မယ်။',
         );
         this.luckyDrawService.startDraw();
       }
