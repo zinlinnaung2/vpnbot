@@ -513,16 +513,18 @@ export class BotUpdate {
         });
 
         // ၂။ User အား အကြောင်းကြားခြင်း
-        return await ctx.reply(
+        await ctx.reply(
           `🎉 <b>ဂုဏ်ယူပါတယ်ခင်ဗျာ!</b>\n\n` +
             `လူကြီးမင်းသည် <b>${myParticipation.prize}</b> ကို ကံထူးထားပါသည်။\n` +
             `✅ ဆုလာဘ်ထုတ်ယူရန် တောင်းဆိုမှုကို Admin ထံသို့ ပေးပို့လိုက်ပါပြီ။ Game Account ထဲသို့ စိန်များ ဝင်ရောက်လာသည်အထိ ခေတ္တစောင့်ဆိုင်းပေးပါခင်ဗျာ။`,
           { parse_mode: 'HTML' },
         );
+        return;
       } else {
-        return await ctx.reply(
+        await ctx.reply(
           `😞 စိတ်မကောင်းပါဘူးခင်ဗျာ။\n\nယခုတစ်ခေါက် Lucky Draw မှာ လူကြီးမင်း ကံမပါသေးပါဘူး။ နောက်တစ်ပတ် အစီအစဉ်မှာ ပြန်လည်ပါဝင်ပေးပါဦး။`,
         );
+        return;
       }
     } catch (error) {
       console.error('Withdraw Prize Error:', error);
