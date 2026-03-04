@@ -458,15 +458,47 @@ export class BotUpdate {
         return;
       }
 
-      // ၃။ ကံမထူးခဲ့လျှင်
-      if (!myParticipation.isWinner) {
+      // 🌟 ၃။ အသစ်ထည့်သွင်းလိုက်သော Condition - Lucky Draw မစတင်ရသေးလျှင်
+      // Database ထဲမှာ Winner ပေါက်ထားသူ ရှိမရှိ အရင်စစ်ပါတယ်
+      const winnerExist = await this.prisma.luckyDrawParticipant.findFirst({
+        where: { isWinner: true },
+      });
+
+      if (!winnerExist) {
+        // ၁။ လက်ရှိ ပါဝင်သူ အရေအတွက်ကို စစ်ဆေးခြင်း
+        const currentCount = await this.prisma.luckyDrawParticipant.count();
+        const totalLimit = 100;
+        const leftCount = Math.max(0, totalLimit - currentCount);
+
+        // ၂။ Progress Bar ပြုလုပ်ခြင်း (ဥပမာ - 🟢🟢🟢⚪⚪⚪)
+        const progressBarLength = 10;
+        const filledLength = Math.round(
+          (currentCount / totalLimit) * progressBarLength,
+        );
+        const progressBar =
+          '🟢'.repeat(filledLength) +
+          '⚪'.repeat(progressBarLength - filledLength);
+
         await ctx.reply(
-          '😞 စိတ်မကောင်းပါဘူး။ လူကြီးမင်း ယခုအပတ်မှာ ကံမပါသေးပါဘူး။',
+          `⏳ <b>Lucky Draw မစတင်ရသေးပါ</b>\n\n` +
+            `လက်ရှိအခြေအနေ: ${progressBar} (${currentCount}%)\n` +
+            `✅ ပါဝင်ပြီးသူ: <b>${currentCount}</b> ဦး\n` +
+            `🚨 လိုအပ်သေးသူ: <b>${leftCount}</b> ဦး\n\n` +
+            `လူဦးရေ <b>${totalLimit}</b> ပြည့်ပါက Admin မှ မဲနှိုက်ပေးမည် ဖြစ်ပါသည်။ မဲနှိုက်ပြီးမှသာ ဆုလာဘ်များကို ထုတ်ယူနိုင်မည် ဖြစ်ပါသည်။ ခေတ္တစောင့်ဆိုင်းပေးပါရန်။`,
+          { parse_mode: 'HTML', ...MAIN_KEYBOARD },
         );
         return;
       }
 
-      // ၄။ ဆုထုတ်ယူပြီးသား ဖြစ်နေလျှင်
+      // ၄။ ကံမထူးခဲ့လျှင် (Draw စတင်ပြီးပြီ၊ ဒါပေမဲ့ ကိုယ်က မပေါက်ဘူးဆိုရင်)
+      if (!myParticipation.isWinner) {
+        await ctx.reply(
+          '😞 စိတ်မကောင်းပါဘူး။ လူကြီးမင်း ယခုအပတ်မှာ ကံမပါသေးပါဘူး။ နောက်အပတ်တွေမှာ ပြန်လည်ပါဝင်ပေးပါ။',
+        );
+        return;
+      }
+
+      // ၅။ ဆုထုတ်ယူပြီးသား ဖြစ်နေလျှင်
       if (myParticipation.isClaimed) {
         await ctx.reply(
           '✅ လူကြီးမင်း ဆုလာဘ်ကို ထုတ်ယူပြီးသား ဖြစ်ပါတယ်ခင်ဗျာ။',
@@ -474,7 +506,7 @@ export class BotUpdate {
         return;
       }
 
-      // 🌟 ၅။ အရေးကြီးဆုံးအချက် - တောင်းဆိုမှု (Request) တင်ထားပြီးသားလား စစ်ဆေးခြင်း
+      // ၆။ တောင်းဆိုမှု (Request) တင်ထားပြီးသားလား စစ်ဆေးခြင်း
       if (myParticipation.isRequested) {
         await ctx.reply(
           `⏳ <b>တောင်းဆိုမှု တင်ထားပြီးပါပြီ</b>\n\n` +
@@ -484,13 +516,13 @@ export class BotUpdate {
         return;
       }
 
-      // ၆။ Admin ဆီစာမပို့ခင် Database မှာ Request တင်လိုက်ပြီဖြစ်ကြောင်း အရင် Update လုပ်ပါ (Double Click ကာကွယ်ရန်)
+      // ၇။ Database မှာ Request တင်လိုက်ပြီဖြစ်ကြောင်း အရင် Update လုပ်ပါ
       await this.prisma.luckyDrawParticipant.update({
         where: { id: myParticipation.id },
         data: { isRequested: true },
       });
 
-      // ၇။ Admin Channel သို့ အချက်အလက်များ လှမ်းပို့ခြင်း
+      // ၈။ Admin Channel သို့ အချက်အလက်များ လှမ်းပို့ခြင်း
       const adminChannelId = process.env.ADMIN_CHANNEL_ID || '-100XXXXXXXXX';
       const adminMessage =
         `🎁 <b>Lucky Draw ဆုလာဘ် တောင်းဆိုမှု (Claim)</b>\n\n` +
@@ -512,10 +544,10 @@ export class BotUpdate {
         ]),
       });
 
-      // ၈။ User အား အကြောင်းကြားခြင်း
+      // ၉။ User အား အကြောင်းကြားခြင်း
       await ctx.reply(
         `🎉 <b>တောင်းဆိုမှု အောင်မြင်ပါသည်</b>\n\n` +
-          `လူကြီးမင်း၏ ဆုလာဘ်တောင်းဆိုမှုကို Admin ထံသို့ ပေးပို့လိုက်ပါပြီ။ Admin မှ စစ်ဆေးပြီးပါက စိန်များကို ဖြည့်သွင်းပေးသွားမည် ဖြစ်ပါသည်။`,
+          `လူကြီးမင်း၏ ဆုလာဘ်တောင်းဆိုမှုကို Admin ထံသို့ ပေးပို့လိုက်ပါပြီ။ Admin မှ စစ်ဆေးပြီးပါက reward များကို ဖြည့်သွင်းပေးသွားမည် ဖြစ်ပါသည်။`,
         { parse_mode: 'HTML', ...MAIN_KEYBOARD },
       );
     } catch (error) {
