@@ -234,7 +234,7 @@ export class BotUpdate {
   async onLuckyDraw(@Ctx() ctx: BotContext) {
     const telegramId = ctx.from.id;
 
-    // ၁။ လူဦးရေ ၂၀၀ ပြည့်မပြည့် အပြင်ကနေ ကြိုစစ်မယ် (UX ပိုကောင်းအောင်)
+    // ၁။ လူဦးရေ ၂၀၀ ပြည့်မပြည့် အပြင်ကနေ ကြိုစစ်မယ်
     const count = await this.prisma.luckyDrawParticipant.count();
 
     if (count >= 200) {
@@ -250,15 +250,39 @@ export class BotUpdate {
     });
 
     if (user?.luckyDrawParticipation) {
-      await await ctx.reply(
+      await ctx.reply(
         `🎫 လူကြီးမင်း စာရင်းသွင်းထားပြီးဖြစ်ပါတယ်။\nသင်၏ Ticket ID မှာ <b>${user.luckyDrawParticipation.ticketId}</b> ဖြစ်ပါတယ်။`,
         { parse_mode: 'HTML' },
       );
       return;
     }
 
-    // ၃။ အခြေအနေအားလုံး အိုကေရင် Wizard Scene ထဲကို ပို့ပေးမယ်
-    await ctx.scene.enter('lucky_draw_scene');
+    // ၃။ Lucky Draw အကြောင်း ရှင်းပြချက် Message
+    const infoMessage =
+      `🎁 <b>MLBB Weekly Lucky Draw အစီအစဉ်</b>\n\n` +
+      `ဒီအပတ်အတွက် ပေးအပ်မည့်ဆုလာဘ်များ -\n` +
+      `• 💎 <b>1049 Diamonds</b> (၁ ဆု)\n` +
+      `• 🎟 <b>Weekly Diamond Pass</b> (၂ ဆု)\n` +
+      `• 💎 <b>11 Diamonds</b> (၁၀ ဆု)\n\n` +
+      `📝 <b>စည်းကမ်းချက်များ</b>\n` +
+      `- ကံစမ်းမဲကို လူဦးရေ ၂၀၀ အထိသာ လက်ခံပါမည်။\n` +
+      `- လူဦးရေပြည့်သည်နှင့် ကံထူးရှင်များကို Bot မှ Auto ဖောက်ပေးသွားမည်။\n` +
+      `- Player ID / Server ID မှန်ကန်စွာ ဖြည့်သွင်းရပါမည်။\n\n` +
+      `👇 ကံစမ်းရန် အောက်ပါ Button ကို နှိပ်ပြီး အချက်အလက်ဖြည့်သွင်းပါ။`;
+
+    await ctx.reply(infoMessage, {
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: '✅ အခုပဲ ပါဝင်ကံစမ်းမယ်',
+              callback_data: 'start_lucky_draw',
+            },
+          ],
+        ],
+      },
+    });
   }
 
   @Command('balance')
