@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { InjectBot } from 'nestjs-telegraf';
 import { Telegraf } from 'telegraf';
+import { MAIN_KEYBOARD } from 'src/bot/bot.update';
 
 @Injectable()
 export class LuckyDrawService {
@@ -98,19 +99,22 @@ export class LuckyDrawService {
 
       // 5. Broadcast to all participants
       // Using Promise.allSettled to ensure one failure doesn't stop the whole broadcast
+      // ... inside startDraw() after the summaryMsg is built
+
+      // 5. Broadcast to all participants
       await Promise.allSettled(
         participants.map(async (p) => {
           try {
             await this.bot.telegram.sendMessage(
               Number(p.user.telegramId),
               summaryMsg,
-              { parse_mode: 'HTML' },
+              {
+                parse_mode: 'HTML',
+                ...MAIN_KEYBOARD,
+              },
             );
           } catch (e: any) {
-            console.error(
-              `Failed to send results to ${p.user.telegramId}:`,
-              e.message,
-            );
+            console.error(`Failed to send to ${p.user.telegramId}:`, e.message);
           }
         }),
       );
