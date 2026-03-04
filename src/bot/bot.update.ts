@@ -329,7 +329,8 @@ export class BotUpdate {
           `• လိုအပ်သေးသူ: <b>${leftCount <= 0 ? 0 : leftCount}</b> ဦး\n\n` +
           `<i>အယောက် ၂၀၀ ပြည့်သည်အထိ ခေတ္တစောင့်ဆိုင်းပေးပါရန် မေတ္တာရပ်ခံအပ်ပါသည်။</i>`;
 
-        return await ctx.reply(statusMessage, { parse_mode: 'HTML' });
+        await ctx.reply(statusMessage, { parse_mode: 'HTML' });
+        return;
       }
 
       // --- Lucky Draw ပြီးသွားပါက (Winner စစ်ဆေးခြင်း) ---
