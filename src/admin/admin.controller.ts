@@ -406,6 +406,41 @@ export class AdminController {
     };
   }
 
+  // ၅။ Manual Loser အဖြစ် သတ်မှတ်ခြင်း (5% Coupon ပေးရန်)
+  @Post('lucky-draw/participants/:id/set-loser')
+  async setManualLoser(@Param('id', ParseIntPipe) id: number) {
+    try {
+      // ၁။ Participant ရှိမရှိ အရင်စစ်မယ်
+      const participant = await this.prisma.luckyDrawParticipant.findUnique({
+        where: { id },
+        include: { user: true },
+      });
+
+      if (!participant) {
+        throw new NotFoundException('Participant ရှာမတွေ့ပါ');
+      }
+
+      // ၂။ Status ကို Manual ပြောင်းလဲမယ်
+      const updated = await this.prisma.luckyDrawParticipant.update({
+        where: { id },
+        data: {
+          prize: '5% Discount Coupon', // GamePurchaseScene က စစ်ထားတဲ့ စာသားအတိုင်း
+          isWinner: false, // Main Winner မဟုတ်ကြောင်း
+          isClaimed: false, // မသုံးရသေးကြောင်း
+        },
+      });
+
+      return {
+        success: true,
+        message: `${participant.accName} ကို 5% Discount Coupon ပေးအပ်ပြီးပါပြီ။`,
+        data: updated,
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      throw new BadRequestException('Manual Loser သတ်မှတ်မှု မအောင်မြင်ပါ');
+    }
+  }
+
   @Get('orders')
   async getAllOrders(
     @Query('status') status?: string,
