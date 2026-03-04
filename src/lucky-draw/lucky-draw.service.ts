@@ -110,12 +110,18 @@ export class LuckyDrawService {
         summaryMsg += `⚠️ ကံစမ်းသူ မရှိပါ သို့မဟုတ် ဆုမဲပေါက်သူ မရှိပါ။`;
       } else {
         winnersList.forEach((w, index) => {
-          summaryMsg += `${index + 1}. ${w.prizeName} -> <b>${w.accName}</b>\n`;
+          // Telegram Name (firstName) နှင့် Game Nickname (accName) နှစ်ခုလုံးကို ပြပေးပါမည်
+          const telegramName = w.user.firstName || 'User';
+          summaryMsg += `${index + 1}. ${w.prizeName}\n   🏆 <b>${telegramName}</b> (Game Name: ${w.accName})\n\n`;
         });
       }
 
-      summaryMsg += `\n━━━━━━━━━━━━━━━━━━━━\n`;
-      summaryMsg += `🎊 ကံထူးရှင်များအားလုံး ဂုဏ်ယူပါတယ်ခင်ဗျာ။`;
+      summaryMsg += `━━━━━━━━━━━━━━━━━━━━\n`;
+      summaryMsg += `🎊 ကံထူးရှင်များအားလုံး ဂုဏ်ယူပါတယ်ခင်ဗျာ။\n\n`;
+
+      // ဆုထုတ်ယူရန် လမ်းညွှန်ချက် ထည့်သွင်းခြင်း
+      summaryMsg += `🎁 <b>ဆုလာဘ် ထုတ်ယူရန်အတွက်:</b>\n`;
+      summaryMsg += `Menu ရှိ "🎁 ဆုလာဘ်ထုတ်ယူရန်" ခလုတ်ကို နှိပ်၍ Admin ထံသို့ တောင်းဆိုမှု ပေးပို့နိုင်ပါပြီခင်ဗျာ။`;
 
       // 6. Broadcast လုပ်ခြင်း
       await Promise.allSettled(
