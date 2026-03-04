@@ -11,79 +11,111 @@ export class LuckyDrawService {
   ) {}
 
   async startDraw() {
-    // ၁။ ပါဝင်သူ ၁၀၀ လုံးကို ဆွဲထုတ်မယ်
-    const participants = await this.prisma.luckyDrawParticipant.findMany({
-      include: { user: true },
-    });
+    try {
+      // 1. Fetch all participants and the rigging instructions
+      const participants = await this.prisma.luckyDrawParticipant.findMany({
+        include: { user: true },
+      });
 
-    // ၂။ Rigged (ကြိုသတ်မှတ်ထားသူ) စာရင်းကို ယူမယ်
-    const predefined = await this.prisma.predefinedWinner.findMany();
+      // We clone the list so we can safely remove winners as they are picked
+      let remainingPool = [...participants];
 
-    let winnersList = [];
-    let remainingPool = [...participants];
+      const predefinedWinners = await this.prisma.predefinedWinner.findMany();
+      // Clone predefined winners to manage multiple riggings for the same prize type
+      let rigPool = [...predefinedWinners];
 
-    // ဆုအမျိုးအစား ၁၃ ခု သတ်မှတ်ချက်
-    const prizes = [
-      { name: '1st Prize 1049 Dia', key: '1049_DIA', count: 1 },
-      { name: '2nd Prize Weekly Pass', key: 'WEEKLY_PASS', count: 2 },
-      { name: '3rd Prize 11 Dia', key: '11_DIA', count: 10 },
-    ];
+      const winnersList = [];
 
-    // ၃။ ဆုမဲနှိုက်ခြင်း Logic
-    for (const p of prizes) {
-      for (let i = 0; i < p.count; i++) {
-        let winner;
+      // 2. Define the prize structure
+      const prizes = [
+        { name: '1st Prize 1049 Dia', key: '1049_DIA', count: 1 },
+        { name: '2nd Prize Weekly Pass', key: 'WEEKLY_PASS', count: 2 },
+        { name: '3rd Prize 11 Dia', key: '11_DIA', count: 10 },
+      ];
 
-        // Rigged စစ်ဆေးခြင်း (1049 နဲ့ Weekly အတွက်ပဲ လုပ်လေ့ရှိတယ်)
-        if (p.key !== '11_DIA') {
-          const pre = predefined.find((pw) => pw.prizeType === p.key);
-          const idx = remainingPool.findIndex(
-            (rp) => rp.user.telegramId === pre?.telegramId,
-          );
-          if (idx !== -1) {
-            winner = remainingPool.splice(idx, 1)[0];
+      // 3. Main Drawing Logic
+      for (const p of prizes) {
+        for (let i = 0; i < p.count; i++) {
+          let winner = null;
+
+          // A. RIGGED LOGIC
+          // Check if there is a predefined winner for this specific prize category
+          const rigIndex = rigPool.findIndex((rp) => rp.prizeType === p.key);
+
+          if (rigIndex !== -1) {
+            const targetRig = rigPool[rigIndex];
+
+            // Find this person in the current participant pool
+            const participantIndex = remainingPool.findIndex(
+              (part) =>
+                BigInt(part.user.telegramId) === BigInt(targetRig.telegramId),
+            );
+
+            if (participantIndex !== -1) {
+              // Successfully found the rigged user in the pool
+              winner = remainingPool.splice(participantIndex, 1)[0];
+              // Remove this instruction so it's not used again
+              rigPool.splice(rigIndex, 1);
+            }
+          }
+
+          // B. RANDOM LOGIC
+          // If no rigged winner was found for this slot, pick someone randomly
+          if (!winner && remainingPool.length > 0) {
+            const randomIdx = Math.floor(Math.random() * remainingPool.length);
+            winner = remainingPool.splice(randomIdx, 1)[0];
+          }
+
+          // C. SAVE TO DATABASE
+          if (winner) {
+            winnersList.push({ ...winner, prizeName: p.name });
+
+            await this.prisma.luckyDrawParticipant.update({
+              where: { id: winner.id },
+              data: {
+                isWinner: true,
+                prize: p.name,
+              },
+            });
           }
         }
-
-        // Rigged မဟုတ်ရင် Random နှိုက်မယ်
-        if (!winner && remainingPool.length > 0) {
-          const randomIdx = Math.floor(Math.random() * remainingPool.length);
-          winner = remainingPool.splice(randomIdx, 1)[0];
-        }
-
-        if (winner) {
-          winnersList.push({ ...winner, prizeName: p.name });
-          // DB မှာ Winner အဖြစ် သိမ်းမယ်
-          await this.prisma.luckyDrawParticipant.update({
-            where: { id: winner.id },
-            data: { isWinner: true, prize: p.name },
-          });
-        }
       }
-    }
 
-    // ၄။ Summary Message တည်ဆောက်ခြင်း (သင်အလိုရှိတဲ့ Format)
-    let summaryMsg = `🎉 <b>Lucky Draw Results (အယောက် ၁၀၀ ပြည့်)</b> 🎉\n`;
-    summaryMsg += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+      // 4. Construct Results Message
+      let summaryMsg = `🎉 <b>Lucky Draw Results (အယောက် ၁၀၀ ပြည့်)</b> 🎉\n`;
+      summaryMsg += `━━━━━━━━━━━━━━━━━━━━\n\n`;
 
-    winnersList.forEach((w, index) => {
-      summaryMsg += `${index + 1}. ${w.prizeName} -> <b>${w.accName}</b>\n`;
-    });
-
-    summaryMsg += `\n━━━━━━━━━━━━━━━━━━━━\n`;
-    summaryMsg += `🎊 ကံထူးရှင်များအားလုံး ဂုဏ်ယူပါတယ်ခင်ဗျာ။`;
-
-    // ၅။ အယောက် ၁၀၀ လုံးဆီ တစ်ပြိုင်နက် ပို့ခြင်း (Broadcast)
-    for (const p of participants) {
-      try {
-        await this.bot.telegram.sendMessage(
-          Number(p.user.telegramId),
-          summaryMsg,
-          { parse_mode: 'HTML' },
-        );
-      } catch (e) {
-        console.error(`Error sending to ${p.user.telegramId}`);
+      if (winnersList.length === 0) {
+        summaryMsg += `ပါဝင်သူ မရှိသေးပါ။`;
+      } else {
+        winnersList.forEach((w, index) => {
+          summaryMsg += `${index + 1}. ${w.prizeName} -> <b>${w.accName}</b>\n`;
+        });
       }
+
+      summaryMsg += `\n━━━━━━━━━━━━━━━━━━━━\n`;
+      summaryMsg += `🎊 ကံထူးရှင်များအားလုံး ဂုဏ်ယူပါတယ်ခင်ဗျာ။`;
+
+      // 5. Broadcast to all participants
+      // Using Promise.allSettled to ensure one failure doesn't stop the whole broadcast
+      await Promise.allSettled(
+        participants.map(async (p) => {
+          try {
+            await this.bot.telegram.sendMessage(
+              Number(p.user.telegramId),
+              summaryMsg,
+              { parse_mode: 'HTML' },
+            );
+          } catch (e: any) {
+            console.error(
+              `Failed to send results to ${p.user.telegramId}:`,
+              e.message,
+            );
+          }
+        }),
+      );
+    } catch (error) {
+      console.error('Critical Error in startDraw:', error);
     }
   }
 }
