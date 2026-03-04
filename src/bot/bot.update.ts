@@ -452,32 +452,36 @@ export class BotUpdate {
 
       // ၂။ ပါဝင်ထားခြင်း မရှိလျှင်
       if (!myParticipation) {
-        return await ctx.reply(
+        await ctx.reply(
           '❌ လူကြီးမင်းသည် Lucky Draw တွင် ပါဝင်ထားခြင်း မရှိပါဘူး။',
         );
+        return;
       }
 
       // ၃။ ကံမထူးခဲ့လျှင်
       if (!myParticipation.isWinner) {
-        return await ctx.reply(
+        await ctx.reply(
           '😞 စိတ်မကောင်းပါဘူး။ လူကြီးမင်း ယခုအပတ်မှာ ကံမပါသေးပါဘူး။',
         );
+        return;
       }
 
       // ၄။ ဆုထုတ်ယူပြီးသား ဖြစ်နေလျှင်
       if (myParticipation.isClaimed) {
-        return await ctx.reply(
+        await ctx.reply(
           '✅ လူကြီးမင်း ဆုလာဘ်ကို ထုတ်ယူပြီးသား ဖြစ်ပါတယ်ခင်ဗျာ။',
         );
+        return;
       }
 
       // 🌟 ၅။ အရေးကြီးဆုံးအချက် - တောင်းဆိုမှု (Request) တင်ထားပြီးသားလား စစ်ဆေးခြင်း
       if (myParticipation.isRequested) {
-        return await ctx.reply(
+        await ctx.reply(
           `⏳ <b>တောင်းဆိုမှု တင်ထားပြီးပါပြီ</b>\n\n` +
             `လူကြီးမင်း၏ ဆုလာဘ်ထုတ်ယူမှု တောင်းဆိုချက်ကို Admin ထံ ပေးပို့ထားပြီး ဖြစ်ပါသည်။ ခေတ္တစောင့်ဆိုင်းပေးပါရန်။`,
-          { parse_mode: 'HTML' },
+          { parse_mode: 'HTML', ...MAIN_KEYBOARD },
         );
+        return;
       }
 
       // ၆။ Admin ဆီစာမပို့ခင် Database မှာ Request တင်လိုက်ပြီဖြစ်ကြောင်း အရင် Update လုပ်ပါ (Double Click ကာကွယ်ရန်)
