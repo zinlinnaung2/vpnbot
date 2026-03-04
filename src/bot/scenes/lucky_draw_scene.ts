@@ -13,7 +13,7 @@ export class LuckyDrawWizard {
 
   @WizardStep(1)
   async step1(@Context() ctx: any) {
-    // FIX: Using spread operator (...) within an object to avoid [object Object]
+    // FIX: Using spread operator to wrap the keyboard in an options object
     await ctx.reply(
       '🎮 Lucky Draw ပါဝင်ရန် လူကြီးမင်း၏ MLBB Player ID ကို ရိုက်ထည့်ပေးပါ -',
       {
@@ -32,12 +32,12 @@ export class LuckyDrawWizard {
       await ctx.reply(
         '❌ Player ID သည် ဂဏန်းများသာ ဖြစ်ရပါမည်။ ပြန်ရိုက်ပေးပါ -',
       );
-      return;
+      return; // Stay on the same step
     }
 
     ctx.wizard.state.playerId = msg;
 
-    // FIX: Wrapped keyboard in options object
+    // FIX: Spread keyboard to prevent [object Object]
     await ctx.reply('🌐 Server ID ကို ရိုက်ထည့်ပေးပါ (ဥပမာ - 1234) -', {
       ...Markup.keyboard([['🚫 မဝယ်တော့ပါ (Cancel)']]).resize(),
     });
@@ -94,7 +94,7 @@ export class LuckyDrawWizard {
         await ctx.reply(
           '❌ စိတ်မကောင်းပါဘူး၊ လူကြီးမင်းရိုက်ထည့်လိုက်သော ID/Server ကို ရှာမတွေ့ပါ။\n\nကျေးဇူးပြု၍ ID မှန်ကန်အောင် ပြန်လည်ရိုက်ထည့်ပေးပါ -',
         );
-        return ctx.wizard.selectStep(0);
+        return ctx.wizard.selectStep(0); // Go back to step 1
       }
     } catch (e) {
       await ctx.telegram
@@ -129,7 +129,7 @@ export class LuckyDrawWizard {
   async onRestart(@Context() ctx: any) {
     await ctx.answerCbQuery();
     await ctx.deleteMessage().catch(() => {});
-    // FIX: Removed the extra reply here. Jumping to step 0 triggers step1 prompt.
+    // This will trigger step1 automatically
     return ctx.wizard.selectStep(0);
   }
 
@@ -137,10 +137,10 @@ export class LuckyDrawWizard {
   async onExit(@Context() ctx: any) {
     await ctx.answerCbQuery();
     await ctx.deleteMessage().catch(() => {});
-    await ctx.reply(
-      '🚫 ကံစမ်းမဲအစီအစဉ်မှ ထွက်လိုက်ပါပြီ။',
-      Markup.removeKeyboard(),
-    );
+    // FIX: Wrapped removeKeyboard in an options object
+    await ctx.reply('🚫 ကံစမ်းမဲအစီအစဉ်မှ ထွက်လိုက်ပါပြီ။', {
+      ...Markup.removeKeyboard(),
+    });
     return ctx.scene.leave();
   }
 
@@ -158,10 +158,9 @@ export class LuckyDrawWizard {
       });
 
       if (existing) {
-        await ctx.reply(
-          '⚠️ လူကြီးမင်းသည် စာရင်းသွင်းပြီးသားဖြစ်ပါသည်။',
-          Markup.removeKeyboard(),
-        );
+        await ctx.reply('⚠️ လူကြီးမင်းသည် စာရင်းသွင်းပြီးသားဖြစ်ပါသည်။', {
+          ...Markup.removeKeyboard(),
+        });
         return ctx.scene.leave();
       }
 
@@ -169,7 +168,7 @@ export class LuckyDrawWizard {
       if (count >= 100) {
         await ctx.reply(
           '❌ စိတ်မကောင်းပါဘူး၊ ကံစမ်းမဲအယောက် ၁၀၀ ပြည့်သွားပါပြီ။',
-          Markup.removeKeyboard(),
+          { ...Markup.removeKeyboard() },
         );
         return ctx.scene.leave();
       }
@@ -191,7 +190,8 @@ export class LuckyDrawWizard {
         { parse_mode: 'HTML', ...Markup.removeKeyboard() },
       );
 
-      if (count + 1 >= 3) {
+      // Changed from 3 to 100 as per your logic
+      if (count + 1 >= 100) {
         await ctx.reply(
           '🎊 ဂုဏ်ယူပါတယ်! အယောက် ၁၀၀ ပြည့်သွားပြီဖြစ်တဲ့အတွက် Lucky Draw ကို အခုပဲ စတင်ပါတော့မယ်။',
         );
@@ -201,10 +201,9 @@ export class LuckyDrawWizard {
       return ctx.scene.leave();
     } catch (err) {
       console.error(err);
-      await ctx.reply(
-        '❌ မှတ်တမ်းတင်ရာတွင် အမှားအယွင်းရှိခဲ့ပါသည်။',
-        Markup.removeKeyboard(),
-      );
+      await ctx.reply('❌ မှတ်တမ်းတင်ရာတွင် အမှားအယွင်းရှိခဲ့ပါသည်။', {
+        ...Markup.removeKeyboard(),
+      });
       return ctx.scene.leave();
     }
   }
