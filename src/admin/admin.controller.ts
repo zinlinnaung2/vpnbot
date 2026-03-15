@@ -944,6 +944,104 @@ export class AdminController {
     }
   }
 
+  // ==========================================
+  // 📢 BROADCAST SYSTEM (Real-world process)
+  // ==========================================
+
+  @Post('broadcast')
+  async sendBroadcast(
+    @Body()
+    body: {
+      message: string;
+      imageUrl?: string;
+      // Telegram inline keyboards are arrays of arrays of buttons
+      buttons?: { text: string; url: string }[][];
+    },
+  ) {
+    const { message, imageUrl, buttons } = body;
+
+    if (!message) {
+      throw new BadRequestException('Broadcast message is required');
+    }
+
+    // 1. Database မှ User အားလုံးကို ဆွဲထုတ်ပါမည်
+    const users = await this.prisma.user.findMany({
+      select: { telegramId: true }, // We only need the telegramId for broadcasting
+    });
+
+    if (users.length === 0) {
+      throw new NotFoundException('No users found to broadcast.');
+    }
+
+    // 2. Telegram Inline Keyboard Format ပြင်ဆင်ခြင်း
+    const extraOptions: any = { parse_mode: 'HTML' };
+    if (buttons && buttons.length > 0) {
+      extraOptions.reply_markup = {
+        inline_keyboard: buttons,
+      };
+    }
+
+    // 3. Background Process အနေဖြင့် Run မည် (await မသုံးပါ - API timeout မဖြစ်စေရန်)
+    // ဤနည်းလမ်းသည် Frontend သို့ ချက်ချင်း response ပြန်ပေးပြီး အနောက်တွင် ဆက်အလုပ်လုပ်စေပါသည်။
+    this.processBackgroundBroadcast(users, message, extraOptions, imageUrl);
+
+    // 4. Frontend သို့ အောင်မြင်ကြောင်း ချက်ချင်း အကြောင်းပြန်မည်
+    return {
+      success: true,
+      message: `Broadcast has started in the background for ${users.length} users.`,
+      estimatedTimeMinutes: Math.ceil((users.length * 50) / 1000 / 60), // 50ms delay per user
+    };
+  }
+
+  /**
+   * 🔄 Background Broadcast Worker
+   * Telegram Rate Limit (30 msg/sec) ကို ကျော်လွှားရန် 50ms delay ထည့်ထားပါသည်။
+   */
+  private async processBackgroundBroadcast(
+    users: { telegramId: bigint }[],
+    text: string,
+    options: any,
+    imageUrl?: string,
+  ) {
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const user of users) {
+      try {
+        const tid = user.telegramId.toString();
+
+        if (imageUrl) {
+          // ပုံပါလျှင် sendPhoto သုံးမည်
+          await this.bot.telegram.sendPhoto(tid, imageUrl, {
+            caption: text,
+            ...options,
+          });
+        } else {
+          // စာသားသီးသန့်ဆိုလျှင် sendMessage သုံးမည်
+          await this.bot.telegram.sendMessage(tid, text, options);
+        }
+
+        successCount++;
+      } catch (error: any) {
+        failCount++;
+        // 💡 Real-world tip: Error message က "Forbidden: bot was blocked by the user" ဖြစ်လျှင်
+        // Database ထဲတွင် ထို user ကို isActive: false အဖြစ် မှတ်ထားသင့်ပါသည်။
+        // console.error(`Failed to send to ${user.telegramId}:`, error.message);
+      }
+
+      // 🕒 Throttling: Telegram Rate Limit ကို မထိစေရန် တစ်စက္ကန့်လျှင် ၂၀ စောင်ခန့်သာ ပို့မည် (50ms delay)
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+
+    // Broadcast ပြီးဆုံးသွားပါက Admin ကို (သို့) Console ကို အသိပေးပါမည်
+    console.log(
+      `✅ Broadcast Completed! Success: ${successCount}, Failed: ${failCount}`,
+    );
+
+    // Optional: Admin channel သို့ report လှမ်းပို့နိုင်ပါသည်
+    // await this.bot.telegram.sendMessage(process.env.ADMIN_CHANNEL_ID, `📊 Broadcast Finished.\nSuccess: ${successCount}\nFailed: ${failCount}`);
+  }
+
   @Post('add-balance')
   async addBalance(
     @Body() body: { userId: number; amount: number; reason: string },
