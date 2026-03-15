@@ -1039,7 +1039,10 @@ export class AdminController {
     );
 
     // Optional: Admin channel သို့ report လှမ်းပို့နိုင်ပါသည်
-    // await this.bot.telegram.sendMessage(process.env.ADMIN_CHANNEL_ID, `📊 Broadcast Finished.\nSuccess: ${successCount}\nFailed: ${failCount}`);
+    await this.bot.telegram.sendMessage(
+      process.env.ADMIN_CHANNEL_ID,
+      `📊 Broadcast Finished.\nSuccess: ${successCount}\nFailed: ${failCount}`,
+    );
   }
 
   @Post('add-balance')
