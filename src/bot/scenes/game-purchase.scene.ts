@@ -39,7 +39,10 @@ export class GamePurchaseScene {
     const currentHour = mmTime.getHours();
 
     // မနက် 10:00 မှ ည 12:00 အတွင်းသာ ခွင့်ပြုမည်
-    if (currentHour < 10 || currentHour >= 21) {
+    if (
+      (currentHour < 10 || currentHour >= 21) &&
+      String(ctx.from.id) !== process.env.ADMIN_ID
+    ) {
       await ctx.reply(
         ' <b>လူကြီးမင်းခင်ဗျာ...</b>\n\n' +
           'ကျွန်တော်တို့၏ ဝန်ဆောင်မှုကို <b>မနက် (10:00 AM) မှ ည (9:00 PM)</b> အတွင်းသာ ' +
