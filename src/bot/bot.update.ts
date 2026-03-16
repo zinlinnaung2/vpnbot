@@ -231,6 +231,13 @@ export class BotUpdate {
   //   console.log('Chat ID is:', ctx.chat.id); // ဒီကောင်က Channel ID ကို ထုတ်ပြပေးမှာပါ
   // }
 
+  @Action('🎟️ MLBB Lucky Draw')
+  async onLuckyDrawAction(@Ctx() ctx: BotContext) {
+    // Callback query ကို answer လုပ်ပေးရပါတယ် (Telegram မှာ နာရီပတ်နေတာ ပျောက်သွားအောင်)
+    await ctx.answerCbQuery();
+    await this.onLuckyDraw(ctx);
+  }
+
   @Hears('🎟️ MLBB Lucky Draw')
   async onLuckyDraw(@Ctx() ctx: BotContext) {
     const telegramId = ctx.from.id;
