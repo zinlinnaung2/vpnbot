@@ -955,7 +955,7 @@ export class AdminController {
       message: string;
       imageUrl?: string;
       // Telegram inline keyboards are arrays of arrays of buttons
-      buttons?: { text: string; url: string }[][];
+      buttons?: { text: string; url?: string; callback_data?: string }[][];
     },
   ) {
     const { message, imageUrl, buttons } = body;
