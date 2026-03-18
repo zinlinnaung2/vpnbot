@@ -30,9 +30,14 @@ import { WalletService } from 'src/wallet/wallet.service';
 import { CreateDepositDto } from './dto/deposit.dto';
 import { SettingsService } from './settings.service';
 import axios from 'axios';
+import { IsBoolean, IsOptional, IsString } from 'class-validator';
 
 export class UpdatePurchaseStatusDto {
+  @IsBoolean()
   isOpen: boolean;
+
+  @IsString()
+  @IsOptional()
   reason?: string;
 }
 
