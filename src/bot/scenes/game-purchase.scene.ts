@@ -41,30 +41,27 @@ export class GamePurchaseScene {
       new Date().toLocaleString('en-US', { timeZone: 'Asia/Yangon' }),
     );
     const currentHour = mmTime.getHours();
+
+    // Admin check logic
     const isAdmin = String(ctx.from.id) === process.env.ADMIN_ID;
 
-    // မနက် 10:00 မှ ည 12:00 အတွင်းသာ ခွင့်ပြုမည်
-    if (
-      (currentHour < 10 || currentHour >= 21) &&
-      String(ctx.from.id) !== process.env.ADMIN_ID
-    ) {
+    // ၁။ အချိန်ပိတ်ထားခြင်း ရှိမရှိ အရင်စစ်မည် (Admin မဟုတ်လျှင်)
+    if ((currentHour < 10 || currentHour >= 21) && !isAdmin) {
       await ctx.reply(
         ' <b>လူကြီးမင်းခင်ဗျာ...</b>\n\n' +
           'ကျွန်တော်တို့၏ ဝန်ဆောင်မှုကို <b>မနက် (10:00 AM) မှ ည (9:00 PM)</b> အတွင်းသာ ' +
           'အကောင်းဆုံး ဝန်ဆောင်မှု ပေးလျက်ရှိပါသည်ခင်ဗျာ။\n\n' +
-          'ယခုအချိန်တွင် ခေတ္တပိတ်ထားပါသဖြင့် သတ်မှတ်ချိန်အတွင်း ပြန်လာခဲ့ပါရန် မေတ္တာရပ်ခံအပ်ပါသည် ။  🙏',
-        {
-          parse_mode: 'HTML',
-          ...MAIN_KEYBOARD,
-        },
+          'ယခုအချိန်တွင် ခေတ္တပိတ်ထားပါသဖြင့် သတ်မှတ်ချိန်အတွင်း ပြန်လာခဲ့ပါရန် မေတ္တာရပ်ခံအပ်ပါသည် ။  🙏',
+        { parse_mode: 'HTML', ...MAIN_KEYBOARD },
       );
       return ctx.scene.leave();
     }
 
-    // ⚡ Instant check from memory cache
-    const { isOpen, reason } = this.settings.getPurchaseStatus();
+    // ၂။ ⚡ Database မှ လက်ရှိ ပိတ်/ဖွင့် Status ကို Fetch လုပ်ခြင်း
+    // getPurchaseStatus() ကို async ပြောင်းထားရန် လိုအပ်သည် (await မပါလျှင် အမြဲ true ဖြစ်နေပါလိမ့်မည်)
+    const { isOpen, reason } = await this.settings.getPurchaseStatus();
 
-    if (!isOpen) {
+    if (!isOpen && !isAdmin) {
       await ctx.reply(
         '<b>လူကြီးမင်းခင်ဗျာ...</b>\n\n' +
           `ဝယ်ယူမှုစနစ်ကို ခေတ္တပိတ်ထားပါသည်ခင်ဗျာ။\n\n` +
