@@ -151,50 +151,87 @@ export class LuckyDrawWizard {
   async finalRegistration(ctx: any) {
     const { playerId, serverId, accName } = ctx.wizard.state;
     const telegramId = ctx.from.id;
-    const username = ctx.from.username || ctx.from.first_name;
 
     try {
+      // 1. Database ထဲမှာ User ရှိမရှိ အရင်ရှာမယ်
       const user = await this.prisma.user.findUnique({
         where: { telegramId: BigInt(telegramId) },
       });
 
-      const existing = await this.prisma.luckyDrawParticipant.findUnique({
+      if (!user) {
+        await ctx.reply(
+          '❌ User record ရှာမတွေ့ပါ။ /start ကို ပြန်နှိပ်ပေးပါ။',
+          { ...MAIN_KEYBOARD },
+        );
+        return ctx.scene.leave();
+      }
+
+      // 2. ဒီ Telegram User က စာရင်းသွင်းပြီးသားလား စစ်မယ် (Check by Telegram ID)
+      const existingUser = await this.prisma.luckyDrawParticipant.findUnique({
         where: { userId: user.id },
       });
 
-      if (existing) {
+      if (existingUser) {
         await ctx.reply(
-          '⚠️ လူကြီးမင်းသည် စာရင်းသွင်းပြီးသားဖြစ်ပါသည်။',
-          Markup.removeKeyboard(),
+          '⚠️ လူကြီးမင်းသည် စာရင်းသွင်းပြီးသားဖြစ်ပါသည်။ တစ်ကြိမ်သာ ပါဝင်ခွင့်ရှိပါသည်။',
+          { ...MAIN_KEYBOARD },
         );
         return ctx.scene.leave();
       }
 
+      // 3. ဒီ Game ID + Server ID က စာရင်းသွင်းပြီးသားလား စစ်မယ် (Check by MLBB ID)
+      // Telegram အကောင့်အသစ်နဲ့ လာကံစမ်းရင်တောင် ဒီအဆင့်မှာ မိသွားပါလိမ့်မယ်
+      const existingGameAcc = await this.prisma.luckyDrawParticipant.findFirst({
+        where: {
+          playerId: playerId,
+          serverId: serverId,
+        },
+      });
+
+      if (existingGameAcc) {
+        await ctx.reply(
+          `❌ ဤ Game ID (ID: ${playerId}) သည် အခြား Telegram အကောင့်တစ်ခုဖြင့် စာရင်းသွင်းပြီးသား ဖြစ်နေပါသည်။\n\nမိမိကိုယ်ပိုင် Game ID ဖြင့်သာ ကံစမ်းပေးပါရန်။`,
+          { ...MAIN_KEYBOARD },
+        );
+        return ctx.scene.leave();
+      }
+
+      // 4. လူဦးရေ ၁၀၀ ပြည့်မပြည့် စစ်မယ်
       const count = await this.prisma.luckyDrawParticipant.count();
       if (count >= 100) {
         await ctx.reply(
-          '❌ စိတ်မကောင်းပါဘူး၊ လူဦးရေ ၁၀၀ ပြည့်သွားပါပြီ။',
-          Markup.removeKeyboard(),
+          '❌ စိတ်မကောင်းပါဘူး၊ လူဦးရေ ၁၀၀ ပြည့်သွားပါပြီ။ နောက်တစ်ကြိမ် Lucky Draw ကို စောင့်မျှော်ပေးပါ။',
+          { ...MAIN_KEYBOARD },
         );
         return ctx.scene.leave();
       }
 
+      // 5. အားလုံး OK ရင် Ticket ထုတ်ပေးပြီး Database သွင်းမယ်
       const ticketId = `TKT-${Math.floor(1000 + Math.random() * 9000)}`;
 
       await this.prisma.luckyDrawParticipant.create({
-        data: { userId: user.id, playerId, serverId, accName, ticketId },
+        data: {
+          userId: user.id,
+          playerId: playerId,
+          serverId: serverId,
+          accName: accName,
+          ticketId: ticketId,
+        },
       });
 
-      // User Confirmation
+      // 6. User ထံသို့ အောင်မြင်ကြောင်း အကြောင်းကြားစာပို့
       await ctx.reply(
-        `✅ စာရင်းသွင်းမှု အောင်မြင်ပါသည်!\n🎫 သင်၏ Ticket ID: <b>${ticketId}</b>\n\nအယောက် ၁၀၀ ပြည့်ပါက Admin မှ Lucky Draw စတင်ပေးပါမည်။`,
+        `✅ <b>Lucky Draw စာရင်းသွင်းမှု အောင်မြင်ပါသည်!</b>\n\n` +
+          `🎫 သင်၏ Ticket ID: <b>${ticketId}</b>\n` +
+          `👤 အကောင့်အမည်: <b>${accName}</b>\n` +
+          `🎮 Game ID: ${playerId} (${serverId})\n\n` +
+          `အယောက် ၁၀၀ ပြည့်ပါက Admin မှ Lucky Draw စတင်ပေးပါမည်။ ကျေးဇူးတင်ပါသည်။`,
         { parse_mode: 'HTML', ...MAIN_KEYBOARD },
       );
 
-      // --- NOTIFY ADMIN WHEN 100 IS REACHED ---
+      // 7. လူ ၁၀၀ ပြည့်သွားရင် Admin ဆီ Notification ပို့ပေးမယ်
       const newCount = count + 1;
       if (newCount === 100) {
-        // လူ ၁၀၀ အတိအကျ ပြည့်မှ ပို့မည်
         const adminMsg =
           `📢 <b>Lucky Draw Participant ၁၀၀ ပြည့်သွားပါပြီ!</b>\n\n` +
           `စုစုပေါင်း: <b>${newCount} / 100</b>\n` +
@@ -216,8 +253,18 @@ export class LuckyDrawWizard {
 
       return ctx.scene.leave();
     } catch (err) {
-      console.error(err);
-      await ctx.reply('❌ အမှားအယွင်းရှိခဲ့ပါသည်။', Markup.removeKeyboard());
+      console.error('Lucky Draw Error:', err);
+      // Database unique constraint error (@@unique([playerId, serverId])) ကို catch လုပ်ဖို့
+      if (err === 'P2002') {
+        await ctx.reply('❌ ဤ Game ID သည် စာရင်းသွင်းပြီးသား ဖြစ်နေပါသည်။', {
+          ...MAIN_KEYBOARD,
+        });
+      } else {
+        await ctx.reply(
+          '❌ စနစ်ချို့ယွင်းမှုတစ်ခု ဖြစ်ပေါ်ခဲ့ပါသည်။ ခေတ္တစောင့်ပြီးမှ ပြန်လည်ကြိုးစားပါ။',
+          { ...MAIN_KEYBOARD },
+        );
+      }
       return ctx.scene.leave();
     }
   }

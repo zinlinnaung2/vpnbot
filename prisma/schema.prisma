@@ -165,6 +165,8 @@ model LuckyDrawParticipant {
   isClaimed   Boolean  @default(false)
   isRequested Boolean  @default(false)
   createdAt   DateTime @default(now())
+
+  @@unique([playerId, serverId])
 }
 
 // ကြိုတင်သတ်မှတ်ထားမည့်သူများ (Rigged System အတွက်)
