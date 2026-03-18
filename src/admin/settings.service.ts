@@ -90,15 +90,16 @@ export class SettingsService implements OnModuleInit {
    * Updates the Shop Status.
    * Uses a Transaction to ensure both Reason and Status update together.
    */
+  // src/admin/settings.service.ts
+
   async updateGamePurchaseStatus(isOpen: any, reason?: string) {
-    // FIX: Force convert any input to a strict boolean.
-    // This handles strings like "false" coming from the frontend.
+    // Convert any incoming type to a strict Boolean
     const status = isOpen === true || String(isOpen) === 'true';
     const finalReason = reason || '';
 
     try {
+      // 1. Update Database
       await this.prisma.$transaction([
-        // Upsert Status
         this.prisma.systemSetting.upsert({
           where: { key: 'GAME_PURCHASE_OPEN' },
           update: { value: status ? 'true' : 'false' },
@@ -107,7 +108,6 @@ export class SettingsService implements OnModuleInit {
             value: status ? 'true' : 'false',
           },
         }),
-        // Upsert Reason
         this.prisma.systemSetting.upsert({
           where: { key: 'GAME_PURCHASE_CLOSE_REASON' },
           update: { value: finalReason },
@@ -115,19 +115,20 @@ export class SettingsService implements OnModuleInit {
         }),
       ]);
 
-      // CRITICAL: Update memory cache AFTER the DB transaction succeeds
+      // 2. Update Local Memory Cache immediately
       this.isGamePurchaseOpen = status;
       this.gamePurchaseCloseReason = finalReason;
 
-      console.log(`[Status Updated] IsOpen: ${status}, Reason: ${finalReason}`);
+      console.log(`[Cache Updated] Open: ${status}, Reason: ${finalReason}`);
 
+      // 3. Return the NEW state to the frontend
       return {
         isOpen: this.isGamePurchaseOpen,
         reason: this.gamePurchaseCloseReason,
       };
     } catch (error) {
-      console.error('Failed to update purchase status:', error);
-      throw new InternalServerErrorException('Could not update shop settings.');
+      console.error('Update failed:', error);
+      throw new InternalServerErrorException('Database update failed');
     }
   }
 
