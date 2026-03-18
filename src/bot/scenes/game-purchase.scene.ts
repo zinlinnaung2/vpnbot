@@ -11,6 +11,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { Markup } from 'telegraf';
 import axios from 'axios';
 import { MAIN_KEYBOARD } from '../bot.update';
+import { SettingsService } from 'src/admin/settings.service';
 
 interface GamePurchaseState {
   productId: number;
@@ -28,7 +29,10 @@ interface GamePurchaseState {
 
 @Scene('game_purchase_scene')
 export class GamePurchaseScene {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settings: SettingsService, // Inject the service
+  ) {}
 
   @SceneEnter()
   async onEnter(@Ctx() ctx: BotContext) {
@@ -37,6 +41,7 @@ export class GamePurchaseScene {
       new Date().toLocaleString('en-US', { timeZone: 'Asia/Yangon' }),
     );
     const currentHour = mmTime.getHours();
+    const isAdmin = String(ctx.from.id) === process.env.ADMIN_ID;
 
     // မနက် 10:00 မှ ည 12:00 အတွင်းသာ ခွင့်ပြုမည်
     if (
@@ -52,6 +57,20 @@ export class GamePurchaseScene {
           parse_mode: 'HTML',
           ...MAIN_KEYBOARD,
         },
+      );
+      return ctx.scene.leave();
+    }
+
+    // ⚡ Instant check from memory cache
+    const { isOpen, reason } = this.settings.getPurchaseStatus();
+
+    if (!isOpen && !isAdmin) {
+      await ctx.reply(
+        '<b>လူကြီးမင်းခင်ဗျာ...</b>\n\n' +
+          `ဝယ်ယူမှုစနစ်ကို ခေတ္တပိတ်ထားပါသည်ခင်ဗျာ။\n\n` +
+          `<b>အကြောင်းရင်း:</b> ${reason || 'စနစ်ပြုပြင်နေပါသည်'}\n\n` +
+          'အဆင်မပြေမှုအတွက် တောင်းပန်အပ်ပါသည် 🙏',
+        { parse_mode: 'HTML', ...MAIN_KEYBOARD },
       );
       return ctx.scene.leave();
     }

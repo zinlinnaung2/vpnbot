@@ -1,43 +1,92 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { PrismaService } from 'src/prisma/prisma.service'; // Adjust path if needed
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class SettingsService implements OnModuleInit {
-  // This is your in-memory cache
   private blocked2DNumbers: string[] = [];
+
+  // New cached fields
+  private isGamePurchaseOpen: boolean = true;
+  private gamePurchaseCloseReason: string = '';
 
   constructor(private readonly prisma: PrismaService) {}
 
-  // Automatically runs when the NestJS app starts
   async onModuleInit() {
     await this.refreshCache();
   }
 
-  // Fetch from DB and store in memory
   private async refreshCache() {
-    const setting = await this.prisma.systemSetting.findUnique({
-      where: { key: 'BLOCKED_2D_NUMBERS' },
+    const settings = await this.prisma.systemSetting.findMany({
+      where: {
+        key: {
+          in: [
+            'BLOCKED_2D_NUMBERS',
+            'GAME_PURCHASE_OPEN',
+            'GAME_PURCHASE_CLOSE_REASON',
+          ],
+        },
+      },
     });
-    this.blocked2DNumbers = setting ? JSON.parse(setting.value) : [];
-    console.log(`[Cache] Blocked numbers loaded: ${this.blocked2DNumbers}`);
+
+    // Parse Blocked Numbers
+    const blocked = settings.find((s) => s.key === 'BLOCKED_2D_NUMBERS');
+    this.blocked2DNumbers = blocked ? JSON.parse(blocked.value) : [];
+
+    // Parse Open/Close Status
+    const openStatus = settings.find((s) => s.key === 'GAME_PURCHASE_OPEN');
+    this.isGamePurchaseOpen = openStatus ? openStatus.value === 'true' : true;
+
+    // Parse Reason
+    const reason = settings.find((s) => s.key === 'GAME_PURCHASE_CLOSE_REASON');
+    this.gamePurchaseCloseReason = reason ? reason.value : '';
+
+    console.log(`[Cache Loaded] Purchase Open: ${this.isGamePurchaseOpen}`);
   }
 
-  // ⚡ Instant read from memory (No DB call!)
+  // --- Getters (Fast Memory Reads) ---
+
   getBlockedNumbers(): string[] {
     return this.blocked2DNumbers;
   }
 
-  // Update both the Database and the Cache
+  getPurchaseStatus() {
+    return {
+      isOpen: this.isGamePurchaseOpen,
+      reason: this.gamePurchaseCloseReason,
+    };
+  }
+
+  // --- Updaters (DB + Memory Sync) ---
+
+  async updateGamePurchaseStatus(isOpen: boolean, reason?: string) {
+    await this.prisma.$transaction([
+      this.prisma.systemSetting.upsert({
+        where: { key: 'GAME_PURCHASE_OPEN' },
+        update: { value: isOpen ? 'true' : 'false' },
+        create: { key: 'GAME_PURCHASE_OPEN', value: isOpen ? 'true' : 'false' },
+      }),
+      this.prisma.systemSetting.upsert({
+        where: { key: 'GAME_PURCHASE_CLOSE_REASON' },
+        update: { value: reason || '' },
+        create: { key: 'GAME_PURCHASE_CLOSE_REASON', value: reason || '' },
+      }),
+    ]);
+
+    // Update Cache
+    this.isGamePurchaseOpen = isOpen;
+    this.gamePurchaseCloseReason = reason || '';
+
+    return { isOpen, reason };
+  }
+
+  // Your existing update method
   async updateBlockedNumbers(numbers: string[]) {
     await this.prisma.systemSetting.upsert({
       where: { key: 'BLOCKED_2D_NUMBERS' },
       update: { value: JSON.stringify(numbers) },
       create: { key: 'BLOCKED_2D_NUMBERS', value: JSON.stringify(numbers) },
     });
-
-    // Update the in-memory cache immediately
     this.blocked2DNumbers = numbers;
-
     return this.blocked2DNumbers;
   }
 }
