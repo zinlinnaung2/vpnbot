@@ -31,6 +31,11 @@ import { CreateDepositDto } from './dto/deposit.dto';
 import { SettingsService } from './settings.service';
 import axios from 'axios';
 
+export class UpdatePurchaseStatusDto {
+  isOpen: boolean;
+  reason?: string;
+}
+
 @Controller('admin')
 export class AdminController {
   constructor(
@@ -942,6 +947,19 @@ export class AdminController {
       console.error('Deduct Balance Error:', error);
       throw new InternalServerErrorException('ငွေနှုတ်ယူမှု လုပ်ဆောင်၍မရပါ');
     }
+  }
+
+  @Get('game-purchase')
+  async getStatus() {
+    return this.settingsService.getPurchaseStatus();
+  }
+
+  @Post('game-purchase')
+  async setStatus(@Body() body: UpdatePurchaseStatusDto) {
+    return this.settingsService.updateGamePurchaseStatus(
+      body.isOpen,
+      body.reason,
+    );
   }
 
   // ==========================================
