@@ -61,7 +61,7 @@ export class GamePurchaseScene {
     // getPurchaseStatus() ကို async ပြောင်းထားရန် လိုအပ်သည် (await မပါလျှင် အမြဲ true ဖြစ်နေပါလိမ့်မည်)
     const { isOpen, reason } = await this.settings.getPurchaseStatus();
 
-    if (!isOpen && !isAdmin) {
+    if (!isOpen) {
       await ctx.reply(
         '<b>လူကြီးမင်းခင်ဗျာ...</b>\n\n' +
           `ဝယ်ယူမှုစနစ်ကို ခေတ္တပိတ်ထားပါသည်ခင်ဗျာ။\n\n` +
