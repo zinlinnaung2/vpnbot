@@ -961,7 +961,7 @@ export class AdminController {
 
   @Post('game-purchase')
   async setStatus(@Body() body: UpdatePurchaseStatusDto) {
-    // await ထည့်ထားဖို့ လိုပါတယ်
+    // MUST await this call to ensure DB and Memory are updated before returning
     const result = await this.settingsService.updateGamePurchaseStatus(
       body.isOpen,
       body.reason,

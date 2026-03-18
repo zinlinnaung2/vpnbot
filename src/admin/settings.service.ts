@@ -1,11 +1,10 @@
+// src/admin/settings.service.ts
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class SettingsService implements OnModuleInit {
   private blocked2DNumbers: string[] = [];
-
-  // New cached fields
   private isGamePurchaseOpen: boolean = true;
   private gamePurchaseCloseReason: string = '';
 
@@ -28,25 +27,17 @@ export class SettingsService implements OnModuleInit {
       },
     });
 
-    // Parse Blocked Numbers
     const blocked = settings.find((s) => s.key === 'BLOCKED_2D_NUMBERS');
     this.blocked2DNumbers = blocked ? JSON.parse(blocked.value) : [];
 
-    // Parse Open/Close Status
     const openStatus = settings.find((s) => s.key === 'GAME_PURCHASE_OPEN');
+    // Ensure we handle the "true"/"false" string properly
     this.isGamePurchaseOpen = openStatus ? openStatus.value === 'true' : true;
 
-    // Parse Reason
     const reason = settings.find((s) => s.key === 'GAME_PURCHASE_CLOSE_REASON');
     this.gamePurchaseCloseReason = reason ? reason.value : '';
 
-    console.log(`[Cache Loaded] Purchase Open: ${this.isGamePurchaseOpen}`);
-  }
-
-  // --- Getters (Fast Memory Reads) ---
-
-  getBlockedNumbers(): string[] {
-    return this.blocked2DNumbers;
+    console.log(`[Cache Sync] Shop Open: ${this.isGamePurchaseOpen}`);
   }
 
   getPurchaseStatus() {
@@ -56,11 +47,9 @@ export class SettingsService implements OnModuleInit {
     };
   }
 
-  // --- Updaters (DB + Memory Sync) ---
-
   async updateGamePurchaseStatus(isOpen: any, reason?: string) {
-    // string အနေနဲ့ ရောက်လာရင်တောင် boolean ဖြစ်အောင် ပြောင်းပစ်တာပါ
-    const status = String(isOpen) === 'true';
+    // CRITICAL FIX: Ensure isOpen is a proper boolean even if it comes as a string or number
+    const status = isOpen === true || String(isOpen) === 'true';
 
     await this.prisma.$transaction([
       this.prisma.systemSetting.upsert({
@@ -75,15 +64,16 @@ export class SettingsService implements OnModuleInit {
       }),
     ]);
 
-    // Memory Cache ကို update လုပ်မယ်
+    // Update Memory immediately
     this.isGamePurchaseOpen = status;
     this.gamePurchaseCloseReason = reason || '';
 
-    console.log(`[Status Updated] IsOpen: ${status}, Reason: ${reason}`);
-    return { isOpen: status, reason };
+    return {
+      isOpen: this.isGamePurchaseOpen,
+      reason: this.gamePurchaseCloseReason,
+    };
   }
 
-  // Your existing update method
   async updateBlockedNumbers(numbers: string[]) {
     await this.prisma.systemSetting.upsert({
       where: { key: 'BLOCKED_2D_NUMBERS' },
@@ -91,6 +81,10 @@ export class SettingsService implements OnModuleInit {
       create: { key: 'BLOCKED_2D_NUMBERS', value: JSON.stringify(numbers) },
     });
     this.blocked2DNumbers = numbers;
+    return this.blocked2DNumbers;
+  }
+
+  getBlockedNumbers(): string[] {
     return this.blocked2DNumbers;
   }
 }
