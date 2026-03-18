@@ -64,7 +64,7 @@ export class GamePurchaseScene {
     // ⚡ Instant check from memory cache
     const { isOpen, reason } = this.settings.getPurchaseStatus();
 
-    if (!isOpen && !isAdmin) {
+    if (!isOpen) {
       await ctx.reply(
         '<b>လူကြီးမင်းခင်ဗျာ...</b>\n\n' +
           `ဝယ်ယူမှုစနစ်ကို ခေတ္တပိတ်ထားပါသည်ခင်ဗျာ။\n\n` +
