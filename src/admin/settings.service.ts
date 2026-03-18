@@ -58,12 +58,15 @@ export class SettingsService implements OnModuleInit {
 
   // --- Updaters (DB + Memory Sync) ---
 
-  async updateGamePurchaseStatus(isOpen: boolean, reason?: string) {
+  async updateGamePurchaseStatus(isOpen: any, reason?: string) {
+    // string အနေနဲ့ ရောက်လာရင်တောင် boolean ဖြစ်အောင် ပြောင်းပစ်တာပါ
+    const status = String(isOpen) === 'true';
+
     await this.prisma.$transaction([
       this.prisma.systemSetting.upsert({
         where: { key: 'GAME_PURCHASE_OPEN' },
-        update: { value: isOpen ? 'true' : 'false' },
-        create: { key: 'GAME_PURCHASE_OPEN', value: isOpen ? 'true' : 'false' },
+        update: { value: status ? 'true' : 'false' },
+        create: { key: 'GAME_PURCHASE_OPEN', value: status ? 'true' : 'false' },
       }),
       this.prisma.systemSetting.upsert({
         where: { key: 'GAME_PURCHASE_CLOSE_REASON' },
@@ -72,11 +75,12 @@ export class SettingsService implements OnModuleInit {
       }),
     ]);
 
-    // Update Cache
-    this.isGamePurchaseOpen = isOpen;
+    // Memory Cache ကို update လုပ်မယ်
+    this.isGamePurchaseOpen = status;
     this.gamePurchaseCloseReason = reason || '';
 
-    return { isOpen, reason };
+    console.log(`[Status Updated] IsOpen: ${status}, Reason: ${reason}`);
+    return { isOpen: status, reason };
   }
 
   // Your existing update method

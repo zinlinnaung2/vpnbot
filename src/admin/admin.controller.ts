@@ -961,10 +961,12 @@ export class AdminController {
 
   @Post('game-purchase')
   async setStatus(@Body() body: UpdatePurchaseStatusDto) {
-    return this.settingsService.updateGamePurchaseStatus(
+    // await ထည့်ထားဖို့ လိုပါတယ်
+    const result = await this.settingsService.updateGamePurchaseStatus(
       body.isOpen,
       body.reason,
     );
+    return result;
   }
 
   // ==========================================
