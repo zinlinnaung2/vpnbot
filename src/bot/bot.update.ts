@@ -937,6 +937,7 @@ export class BotUpdate {
 
   // --- Shop Flow (Modified for Subcategories) ---
 
+  @Action('🛒 စျေးဝယ်မယ်')
   @Hears('🛒 စျေးဝယ်မယ်')
   @Action('shop_main')
   async onShop(@Ctx() ctx: BotContext) {
