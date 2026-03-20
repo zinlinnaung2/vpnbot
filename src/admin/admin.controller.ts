@@ -508,6 +508,39 @@ export class AdminController {
       },
     };
   }
+
+  @Patch('products/bulk-add-price')
+  async addPriceToAllProducts(@Body() body: { amount: number }) {
+    const { amount } = body;
+
+    // 1. Validation
+    if (typeof amount !== 'number' || isNaN(amount) || amount === 0) {
+      throw new BadRequestException('မှန်ကန်သော ပမာဏ (Amount) ထည့်သွင်းပေးပါ။');
+    }
+
+    try {
+      // 2. Prisma Atomic Increment (Updates all records efficiently)
+      const result = await this.prisma.product.updateMany({
+        data: {
+          price: {
+            increment: amount, // Adds the specified amount to the existing price
+          },
+        },
+      });
+
+      return {
+        success: true,
+        message: `Successfully updated prices for ${result.count} products.`,
+        addedAmount: amount,
+        updatedCount: result.count,
+      };
+    } catch (error) {
+      console.error('Bulk Price Update Error:', error);
+      throw new InternalServerErrorException(
+        'စျေးနှုန်းများ အတိုးအလျှော့လုပ်ခြင်း မအောင်မြင်ပါ။',
+      );
+    }
+  }
   @Get('products')
   async getAllProducts() {
     const products = await this.prisma.product.findMany({
