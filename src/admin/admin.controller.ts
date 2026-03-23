@@ -820,7 +820,7 @@ export class AdminController {
 
   @Post('approve-deposit/:id')
   async approveDep(@Param('id', ParseIntPipe) id: number) {
-    return await this.withdrawService.approveDeposit(id);
+    return await this.walletService.approveDeposit(id, 1776339525);
   }
 
   // admin.controller.ts ထဲသို့ ထည့်ရန်
