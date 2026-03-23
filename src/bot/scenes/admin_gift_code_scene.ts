@@ -9,26 +9,25 @@ export class AdminGiftCodeScene {
 
   @SceneEnter()
   async onEnter(@Ctx() ctx: BotContext) {
-    // We remove the Markup.keyboard here to avoid the 400 error.
-    // In a Channel/Admin environment, it's safer to use text-based cancel commands
-    // or simply wait for the code.
     await ctx.reply(
-      '🔑 <b>GiftCard Code ကို ရိုက်ထည့်ပေးပါ -</b>\n\n(ပယ်ဖျက်လိုပါက "cancel" ဟု ရိုက်ပါ)',
-      {
-        parse_mode: 'HTML',
-      },
+      '🔑 <b>GiftCard Code ကို ရိုက်ထည့်ပေးပါ -</b>\n\n(Admin account မဟုတ်ဘဲ Channel အနေဖြင့် ရိုက်ထည့်နိုင်သည်)',
+      { parse_mode: 'HTML' },
     );
   }
 
   @On('text')
-  @On('channel_post')
-  async onCodeReceived(@Ctx() ctx: BotContext) {
-    const text = (ctx.message as any).text;
+  @On('channel_post') // This catches posts made by the Channel identity
+  async onCodeReceived(@Ctx() ctx: any) {
+    // ✨ FIX: Check both message (Private/Group) and channelPost (Channel)
+    const text = ctx.message?.text || ctx.channelPost?.text;
     const state = ctx.scene.state as { purchaseId: number };
+
+    // If there's no text (e.g. someone sent a sticker), do nothing
+    if (!text) return;
 
     // Standardize the cancel check
     if (text.toLowerCase() === 'cancel' || text === '❌ မပို့တော့ပါ (Cancel)') {
-      await ctx.reply('Cancelled.');
+      await ctx.reply('✅ Cancelled.');
       return ctx.scene.leave();
     }
 
@@ -56,13 +55,16 @@ export class AdminGiftCodeScene {
       );
 
       // 3. Confirm to Admin
-      await ctx.reply(
-        `✅ Code ပို့ပြီးပါပြီ။ Order #${state.purchaseId} Completed.`,
+      // Use ctx.chat.id to reply back to the same channel
+      await ctx.telegram.sendMessage(
+        ctx.chat.id,
+        `✅ Code [ <code>${text}</code> ] ကို User ထံ ပို့ပြီးပါပြီ။\nOrder #${state.purchaseId} Completed.`,
+        { parse_mode: 'HTML' },
       );
 
       return ctx.scene.leave();
     } catch (e) {
-      console.error(e);
+      console.error('Final Save Error:', e);
       await ctx.reply('❌ အမှားအယွင်း ဖြစ်သွားပါသည်။');
       return ctx.scene.leave();
     }
