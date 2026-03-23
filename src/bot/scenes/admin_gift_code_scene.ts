@@ -9,10 +9,15 @@ export class AdminGiftCodeScene {
 
   @SceneEnter()
   async onEnter(@Ctx() ctx: BotContext) {
-    await ctx.reply('🔑 <b>GiftCard Code ကို ရိုက်ထည့်ပေးပါ -</b>', {
-      parse_mode: 'HTML',
-      ...Markup.keyboard([['❌ မပို့တော့ပါ (Cancel)']]).resize(),
-    });
+    // We remove the Markup.keyboard here to avoid the 400 error.
+    // In a Channel/Admin environment, it's safer to use text-based cancel commands
+    // or simply wait for the code.
+    await ctx.reply(
+      '🔑 <b>GiftCard Code ကို ရိုက်ထည့်ပေးပါ -</b>\n\n(ပယ်ဖျက်လိုပါက "cancel" ဟု ရိုက်ပါ)',
+      {
+        parse_mode: 'HTML',
+      },
+    );
   }
 
   @On('text')
@@ -20,7 +25,8 @@ export class AdminGiftCodeScene {
     const text = (ctx.message as any).text;
     const state = ctx.scene.state as { purchaseId: number };
 
-    if (text === '❌ မပို့တော့ပါ (Cancel)') {
+    // Standardize the cancel check
+    if (text.toLowerCase() === 'cancel' || text === '❌ မပို့တော့ပါ (Cancel)') {
       await ctx.reply('Cancelled.');
       return ctx.scene.leave();
     }
@@ -39,7 +45,7 @@ export class AdminGiftCodeScene {
         `📦 ပစ္စည်း: <b>${purchase.product.name}</b>\n` +
         `🔢 အရေအတွက်: <b>${purchase.quantity}</b>\n` +
         `💰 ကျသင့်ငွေ: <b>${purchase.amount.toLocaleString()} MMK</b>\n\n` +
-        `🎁 လူကြီးမင်း၏ Code: <code>${text}</code>\n\n` + // THE CODE IS HERE
+        `🎁 လူကြီးမင်း၏ Code: <code>${text}</code>\n\n` +
         `အသုံးပြုပေးမှုအတွက် ကျေးဇူးတင်ပါသည်! 🙏`;
 
       await ctx.telegram.sendMessage(
@@ -51,11 +57,11 @@ export class AdminGiftCodeScene {
       // 3. Confirm to Admin
       await ctx.reply(
         `✅ Code ပို့ပြီးပါပြီ။ Order #${state.purchaseId} Completed.`,
-        Markup.removeKeyboard(),
       );
 
       return ctx.scene.leave();
     } catch (e) {
+      console.error(e);
       await ctx.reply('❌ အမှားအယွင်း ဖြစ်သွားပါသည်။');
       return ctx.scene.leave();
     }
