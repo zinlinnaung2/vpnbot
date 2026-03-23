@@ -823,7 +823,7 @@ export class AdminController {
     // 3. Message ID ရှိခဲ့ရင် Bot ထဲက Message ကို Edit လုပ်ပါမယ်
     if (record && record.adminMessageId) {
       try {
-        await this.bot.telegram.editMessageText(
+        await this.bot.telegram.editMessageCaption(
           process.env.ADMIN_CHANNEL_ID, // Bot Admin ရဲ့ Chat ID
           parseInt(record.adminMessageId),
           undefined, // inline_message_id
