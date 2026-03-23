@@ -1179,38 +1179,48 @@ export class BotUpdate {
     const purchaseId = parseInt(ctx.match[1]);
 
     try {
-      // 1. Fetch the purchase details FIRST without updating status
       const purchase = await this.prisma.purchase.findUnique({
         where: { id: purchaseId },
-        include: { user: true, product: true },
+        include: { product: true, user: true },
       });
 
-      if (!purchase) return ctx.answerCbQuery('Purchase not found');
+      if (!purchase) return ctx.answerCbQuery('❌ Order မတွေ့ပါ။');
 
       const category = purchase.product.category?.toUpperCase().trim() || '';
       const name = purchase.product.name.toUpperCase();
 
-      // --- FEATURE: GIFTCARD / VPN HANDLER ---
+      // --- [ GIFTCARD သို့မဟုတ် VPN ဖြစ်လျှင် Code တောင်းမည် ] ---
       if (category === 'GIFTCARD' || name.includes('VPN')) {
         await ctx.answerCbQuery();
 
-        // IMPORTANT: Remove the inline buttons from the Admin message first.
-        // This clears the interaction state and prevents the 400 error.
+        // Status ကို PROCESSING သို့ ပြောင်းလဲခြင်း (Code စောင့်နေပြီဟု သတ်မှတ်)
+        await this.prisma.purchase.update({
+          where: { id: purchaseId },
+          data: { status: 'PROCESSING' },
+        });
+
         const caption = (ctx.callbackQuery.message as any).caption || '';
         await ctx.editMessageCaption(
-          `${caption}\n\n⏳ <b>Processing... Admin ${ctx.from.first_name} is entering the code.</b>`,
+          `${caption}\n\n⏳ <b>[ GIFTCARD/VPN စနစ် ]</b>\n🔑 လူကြီးမင်း၏ Gift Code ကို အောက်တွင် ရိုက်ထည့်ပေးပါ -`,
           {
             parse_mode: 'HTML',
-            reply_markup: { inline_keyboard: [] }, // Clears the keyboard
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  Markup.button.callback(
+                    '❌ မပို့တော့ပါ (Cancel)',
+                    `cancel_code_${purchaseId}`,
+                  ),
+                ],
+              ],
+            },
           },
         );
-
-        // Enter the scene to collect the code
-        return await ctx.scene.enter('admin_gift_code_scene', { purchaseId });
+        return;
       }
 
-      // --- ORIGINAL LOGIC: REGULAR PRODUCTS ---
-      const updatedPurchase = await this.prisma.purchase.update({
+      // --- [ သာမန် ပစ္စည်းများအတွက် တိုက်ရိုက် Complete လုပ်ခြင်း ] ---
+      const updated = await this.prisma.purchase.update({
         where: { id: purchaseId },
         data: { status: 'COMPLETED' },
         include: { user: true, product: true },
@@ -1225,25 +1235,155 @@ export class BotUpdate {
         },
       );
 
+      await this.sendUserSuccessNotification(ctx, updated);
+      await ctx.answerCbQuery('Order Completed!');
+    } catch (e) {
+      console.error('Done Action Error:', e);
+      await ctx.answerCbQuery('Error updating order');
+    }
+  }
+
+  /**
+   * ၂။ Channel ထဲတွင် Code ရိုက်ထည့်လိုက်သည့်အခါ (စာသားဝင်လာတိုင်း စစ်မည်)
+   */
+  @On('channel_post')
+  async onChannelPost(@Ctx() ctx: any) {
+    const text = ctx.channelPost?.text;
+    if (!text) return;
+
+    // လက်ရှိ PROCESSING ဖြစ်နေသည့် GIFTCARD/VPN order ကို ရှာခြင်း
+    const activeOrder = await this.prisma.purchase.findFirst({
+      where: { status: 'PROCESSING' },
+      include: { user: true, product: true },
+      // orderBy: { updatedAt: 'desc' }, // နောက်ဆုံးနှိပ်ထားသည့် order ကို အရင်ယူမည်
+    });
+
+    if (!activeOrder) return; // စောင့်နေသည့် order မရှိလျှင် ဘာမှမလုပ်ပါ
+
+    try {
+      // ၁။ User ဆီသို့ Code ပို့ပေးခြင်း
       const userMsg =
-        `✅ <b>အော်ဒါ အောင်မြင်ပါသည်!</b>\n\n` +
-        `📦 ပစ္စည်း: <b>${updatedPurchase.product.name}</b>\n` +
-        `🔢 အရေအတွက်: <b>${updatedPurchase.quantity}</b>\n` +
-        `💰 စုစုပေါင်းကျသင့်ငွေ: <b>${updatedPurchase.amount.toLocaleString()} MMK</b>\n\n` +
-        `လူကြီးမင်း၏ အကောင့်ထဲသို့ ပစ္စည်းများ ထည့်သွင်းပေးလိုက်ပါပြီ။\nကျေးဇူးတင်ပါသည်! 🙏`;
+        `✅ <b>Gift Card ဝယ်ယူမှု အောင်မြင်ပါသည်!</b>\n\n` +
+        `📦 ပစ္စည်း: <b>${activeOrder.product.name}</b>\n` +
+        `🔢 အရေအတွက်: <b>${activeOrder.quantity}</b>\n` +
+        `💰 ကျသင့်ငွေ: <b>${activeOrder.amount.toLocaleString()} MMK</b>\n\n` +
+        `🎁 လူကြီးမင်း၏ Code: <code>${text}</code>\n\n` +
+        `အသုံးပြုပေးမှုအတွက် ကျေးဇူးတင်ပါသည်! 🙏`;
 
       await ctx.telegram.sendMessage(
-        Number(updatedPurchase.user.telegramId),
+        Number(activeOrder.user.telegramId),
         userMsg,
         { parse_mode: 'HTML' },
       );
 
-      await ctx.answerCbQuery('Order Completed!');
-    } catch (e) {
-      console.error('Action Error:', e);
-      await ctx.answerCbQuery('Error updating order');
+      // ၂။ DB တွင် Completed ပြောင်းခြင်း
+      await this.prisma.purchase.update({
+        where: { id: activeOrder.id },
+        data: { status: 'COMPLETED' },
+      });
+
+      // ၃။ Admin Channel တွင် အတည်ပြုစာ ပို့ခြင်း
+      await ctx.reply(
+        `✅ Code [ <code>${text}</code> ] ကို User ထံ ပို့ပြီးပါပြီ။\nOrder #${activeOrder.id} Completed.`,
+        { parse_mode: 'HTML' },
+      );
+    } catch (error) {
+      console.error('Channel Code Error:', error);
+      await ctx.reply('❌ User ထံ Code ပို့ရာတွင် အမှားအယွင်းရှိပါသည်။');
     }
   }
+
+  /**
+   * ၃။ Code မပို့တော့ဘဲ Cancel လုပ်ခြင်း
+   */
+  @Action(/^cancel_code_(.+)$/)
+  async onCancelCode(@Ctx() ctx: BotContext) {
+    // @ts-ignore
+    const purchaseId = parseInt(ctx.match[1]);
+
+    await this.prisma.purchase.update({
+      where: { id: purchaseId },
+      data: { status: 'PENDING' },
+    });
+
+    const caption = (ctx.callbackQuery.message as any).caption || '';
+    const cleanCaption = caption.split('\n\n⏳')[0]; // Processing စာသားများကို ဖယ်ထုတ်
+
+    await ctx.editMessageCaption(cleanCaption, {
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [
+          [
+            Markup.button.callback(
+              '✅ Done (Direct)',
+              `direct_done_${purchaseId}`,
+            ),
+            Markup.button.callback(
+              '❌ Reject (Direct)',
+              `direct_reject_${purchaseId}`,
+            ),
+          ],
+        ],
+      },
+    });
+    await ctx.answerCbQuery('Cancelled.');
+  }
+
+  // Common Success Message Helper
+  private async sendUserSuccessNotification(ctx: BotContext, purchase: any) {
+    const userMsg =
+      `✅ <b>အော်ဒါ အောင်မြင်ပါသည်!</b>\n\n` +
+      `📦 ပစ္စည်း: <b>${purchase.product.name}</b>\n` +
+      `🔢 အရေအတွက်: <b>${purchase.quantity}</b>\n` +
+      `💰 စုစုပေါင်း: <b>${purchase.amount.toLocaleString()} MMK</b>\n\n` +
+      `လူကြီးမင်း၏ အကောင့်ထဲသို့ ပစ္စည်းများ ထည့်သွင်းပေးလိုက်ပါပြီ။\nကျေးဇူးတင်ပါသည်! 🙏`;
+
+    await ctx.telegram.sendMessage(Number(purchase.user.telegramId), userMsg, {
+      parse_mode: 'HTML',
+    });
+  }
+
+  // ၃။ Code မပို့လိုတော့ပါက Cancel လုပ်သည့် Action
+  // @Action(/^cancel_code_(.+)$/)
+  // async onCancelCode(@Ctx() ctx: BotContext) {
+  //   // @ts-ignore
+  //   const purchaseId = parseInt(ctx.match[1]);
+
+  //   try {
+  //     await this.prisma.purchase.update({
+  //       where: { id: purchaseId },
+  //       data: { status: 'PENDING' },
+  //     });
+
+  //     const caption = (ctx.callbackQuery.message as any).caption || '';
+
+  //     // Caption ထဲမှ ⏳ စာသားများကို ဖယ်ထုတ်ပြီး ခလုတ်ဟောင်းများ ပြန်ထည့်မည်
+  //     const originalCaption = caption.split('\n\n⏳')[0];
+
+  //     await ctx.editMessageCaption(originalCaption, {
+  //       parse_mode: 'HTML',
+  //       reply_markup: {
+  //         inline_keyboard: [
+  //           [
+  //             Markup.button.callback(
+  //               '✅ Done (Direct)',
+  //               `direct_done_${purchaseId}`,
+  //             ),
+  //             Markup.button.callback(
+  //               '❌ Reject (Direct)',
+  //               `direct_reject_${purchaseId}`,
+  //             ),
+  //           ],
+  //         ],
+  //       },
+  //     });
+
+  //     await ctx.answerCbQuery('Cancelled code entry.');
+  //   } catch (e) {
+  //     console.error('Cancel action error:', e);
+  //     await ctx.answerCbQuery('Error cancelling.');
+  //   }
+  // }
 
   @Action(/^direct_reject_(.+)$/)
   async onDirectReject(@Ctx() ctx: BotContext) {

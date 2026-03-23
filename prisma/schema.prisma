@@ -80,6 +80,7 @@ enum ProductType {
 enum PurchaseStatus {
   PENDING // Waiting for Admin
   COMPLETED // Done
+  PROCESSING // Admin is processing the order (for manual products)
   REJECTED // Refunded
 }
 
