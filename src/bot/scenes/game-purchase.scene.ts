@@ -101,7 +101,9 @@ export class GamePurchaseScene {
       state.quantity = 1;
       state.nickname = 'Gift Card Order';
 
-      await ctx.reply(`🛒 <b>${product.name}</b> ကို ရွေးချယ်ထားပါသည်။`);
+      await ctx.reply(
+        `🛒 ${product.subCategory}   ${product.name} ကို ရွေးချယ်ထားပါသည်။`,
+      );
       // Skip straight to promo check, which then goes to payment
       return this.checkUserPromo(ctx, state);
     }
