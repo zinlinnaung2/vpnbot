@@ -21,6 +21,7 @@ export class AdminGiftCodeScene {
   }
 
   @On('text')
+  @On('channel_post')
   async onCodeReceived(@Ctx() ctx: BotContext) {
     const text = (ctx.message as any).text;
     const state = ctx.scene.state as { purchaseId: number };
