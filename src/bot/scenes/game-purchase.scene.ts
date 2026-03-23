@@ -92,6 +92,20 @@ export class GamePurchaseScene {
 
     state.product = product;
 
+    // --- NEW LOGIC FOR GIFTCARD ---
+    const isGiftCard = product.category?.toUpperCase() === 'GIFTCARD';
+
+    if (isGiftCard) {
+      state.playerId = 'GIFT-CARD-USER'; // Placeholder
+      state.serverId = 'N/A';
+      state.quantity = 1;
+      state.nickname = 'Gift Card Order';
+
+      await ctx.reply(`🛒 <b>${product.name}</b> ကို ရွေးချယ်ထားပါသည်။`);
+      // Skip straight to promo check, which then goes to payment
+      return this.checkUserPromo(ctx, state);
+    }
+
     await ctx.reply(
       `🎮 <b>${product.name}</b>\n` +
         `💰 ဈေးနှုန်း: <b>${product.price.toLocaleString()} MMK</b>\n\n` +
