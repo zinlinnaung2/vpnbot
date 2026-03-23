@@ -95,13 +95,13 @@ export class GamePurchaseScene {
     // --- NEW LOGIC FOR GIFTCARD ---
     const isGiftCard =
       product.category?.toUpperCase() === 'GIFTCARD' ||
-      product.subCategory?.toUpperCase() === 'VPN';
+      product.category?.toUpperCase() === 'VPN';
 
     if (isGiftCard) {
-      state.playerId = 'GIFT-CARD-USER'; // Placeholder
+      state.playerId = 'GIFT-CARD-VPN-USER'; // Placeholder
       state.serverId = 'N/A';
       state.quantity = 1;
-      state.nickname = 'Gift Card Order';
+      state.nickname = 'Gift Card/ VPN Order';
 
       await ctx.reply(
         `🛒 ${product.subCategory}   ${product.name} ကို ရွေးချယ်ထားပါသည်။`,
