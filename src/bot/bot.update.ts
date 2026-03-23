@@ -18,6 +18,7 @@ import { TelegrafExceptionFilter } from '../common/filters/telegraf-exception.fi
 import { BotContext } from 'src/interfaces/bot-context.interface';
 import { PrismaService } from '../prisma/prisma.service';
 import { LuckyDrawService } from 'src/lucky-draw/lucky-draw.service';
+import { WithdrawService } from 'src/wallet/withdraw.service';
 
 export const MAIN_KEYBOARD = Markup.keyboard([
   ['🎟️ MLBB Lucky Draw', '🎁 ဆုလာဘ်ထုတ်ယူရန်'],
@@ -45,6 +46,7 @@ export class BotUpdate {
     private readonly walletService: WalletService,
     private readonly prisma: PrismaService,
     private readonly drawService: LuckyDrawService,
+    private readonly withdrawService: WithdrawService,
   ) {}
 
   @Start()
@@ -1584,10 +1586,7 @@ export class BotUpdate {
     const depositId = parseInt(ctx.match[1]);
     try {
       // WalletService MUST use 'include: { user: true }' in its internal prisma call
-      const deposit = await this.walletService.approveDeposit(
-        depositId,
-        ctx.from.id,
-      );
+      const deposit = await this.withdrawService.approveDeposit(depositId);
 
       // 1. Update Admin UI
       const originalCaption = (ctx.callbackQuery.message as any).caption || '';

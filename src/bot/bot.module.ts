@@ -13,6 +13,7 @@ import { SettingsService } from 'src/admin/settings.service';
 import { LuckyDrawService } from 'src/lucky-draw/lucky-draw.service';
 import { LuckyDrawWizard } from './scenes/lucky_draw_scene';
 import { AdminGiftCodeScene } from './scenes/admin_gift_code_scene';
+import { WithdrawService } from 'src/wallet/withdraw.service';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { AdminGiftCodeScene } from './scenes/admin_gift_code_scene';
     LuckyDrawWizard,
     LuckyDrawService, // ဒီနေရာမှာ ထည့်ပါ
     SettingsService,
+    WithdrawService,
     AdminGiftCodeScene,
   ],
 })
