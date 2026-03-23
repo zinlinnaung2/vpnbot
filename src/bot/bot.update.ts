@@ -1140,51 +1140,68 @@ export class BotUpdate {
     const purchaseId = parseInt(ctx.match[1]);
 
     try {
-      const purchase = await this.prisma.purchase.update({
+      // 1. Fetch the purchase details FIRST without updating status
+      const purchase = await this.prisma.purchase.findUnique({
         where: { id: purchaseId },
-        data: { status: 'COMPLETED' },
         include: { user: true, product: true },
       });
 
       if (!purchase) return ctx.answerCbQuery('Purchase not found');
 
-      // --- CHECK IF IT IS A GIFTCARD ---
-      if (
-        purchase.product.category?.toUpperCase() === 'GIFTCARD' ||
-        purchase.product.name.toUpperCase().includes('VPN')
-      ) {
+      const category = purchase.product.category?.toUpperCase().trim() || '';
+      const name = purchase.product.name.toUpperCase();
+
+      // --- FEATURE: GIFTCARD / VPN HANDLER ---
+      if (category === 'GIFTCARD' || name.includes('VPN')) {
         await ctx.answerCbQuery();
-        // Enter a specialized scene to ask the admin for the code
-        return ctx.scene.enter('admin_gift_code_scene', { purchaseId });
+
+        // IMPORTANT: Remove the inline buttons from the Admin message first.
+        // This clears the interaction state and prevents the 400 error.
+        const caption = (ctx.callbackQuery.message as any).caption || '';
+        await ctx.editMessageCaption(
+          `${caption}\n\n⏳ <b>Processing... Admin ${ctx.from.first_name} is entering the code.</b>`,
+          {
+            parse_mode: 'HTML',
+            reply_markup: { inline_keyboard: [] }, // Clears the keyboard
+          },
+        );
+
+        // Enter the scene to collect the code
+        return await ctx.scene.enter('admin_gift_code_scene', { purchaseId });
       }
 
-      // Admin Message Update - Inline Buttons ကို ဖျောက်ပြီး Status ပြောင်းမယ်
+      // --- ORIGINAL LOGIC: REGULAR PRODUCTS ---
+      const updatedPurchase = await this.prisma.purchase.update({
+        where: { id: purchaseId },
+        data: { status: 'COMPLETED' },
+        include: { user: true, product: true },
+      });
+
       const caption = (ctx.callbackQuery.message as any).caption || '';
       await ctx.editMessageCaption(
         `${caption}\n\n✅ <b>COMPLETED BY ${ctx.from.first_name.toUpperCase()}</b>`,
         {
           parse_mode: 'HTML',
-          reply_markup: { inline_keyboard: [] }, // Button တွေကို ဖျက်လိုက်တာ
+          reply_markup: { inline_keyboard: [] },
         },
       );
 
-      // User ဆီကို အရေအတွက်ပါဝင်တဲ့ အကြောင်းကြားစာပို့မယ်
       const userMsg =
         `✅ <b>အော်ဒါ အောင်မြင်ပါသည်!</b>\n\n` +
-        `📦 ပစ္စည်း: <b>${purchase.product.name}</b>\n` +
-        `🔢 အရေအတွက်: <b>${purchase.quantity}</b>\n` + // Quantity ထည့်သွင်းခြင်း
-        `💰 စုစုပေါင်းကျသင့်ငွေ: <b>${purchase.amount.toLocaleString()} MMK</b>\n\n` +
+        `📦 ပစ္စည်း: <b>${updatedPurchase.product.name}</b>\n` +
+        `🔢 အရေအတွက်: <b>${updatedPurchase.quantity}</b>\n` +
+        `💰 စုစုပေါင်းကျသင့်ငွေ: <b>${updatedPurchase.amount.toLocaleString()} MMK</b>\n\n` +
         `လူကြီးမင်း၏ အကောင့်ထဲသို့ ပစ္စည်းများ ထည့်သွင်းပေးလိုက်ပါပြီ။\nကျေးဇူးတင်ပါသည်! 🙏`;
 
       await ctx.telegram.sendMessage(
-        Number(purchase.user.telegramId),
+        Number(updatedPurchase.user.telegramId),
         userMsg,
         { parse_mode: 'HTML' },
       );
 
       await ctx.answerCbQuery('Order Completed!');
     } catch (e) {
-      console.error(e);
+      console.error('Action Error:', e);
       await ctx.answerCbQuery('Error updating order');
     }
   }
