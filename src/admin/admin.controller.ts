@@ -777,6 +777,38 @@ export class AdminController {
     }
   }
 
+  @Post('approve-deposit/:id')
+  async approveDep(@Param('id', ParseIntPipe) id: number) {
+    await this.withdrawService.approveDeposit(id);
+
+    const record = await this.prisma.deposit.findUnique({
+      where: { id },
+      include: { user: true },
+    });
+
+    // 3. Message ID ရှိခဲ့ရင် Bot ထဲက Message ကို Edit လုပ်ပါမယ်
+    if (record && record.adminMessageId) {
+      try {
+        await this.bot.telegram.editMessageText(
+          process.env.ADMIN_CHANNEL_ID, // Bot Admin ရဲ့ Chat ID
+          parseInt(record.adminMessageId),
+          undefined, // inline_message_id
+          `✅ <b>Approved via Dashboard</b>\n\n` +
+            `👤 User: <b>${record.user.firstName || 'User'}</b>\n` +
+            `💰 Amount: <b>${record.amount.toLocaleString()} MMK</b>\n` +
+            `🏦 Method: <b>${record.method}</b>\n` +
+            `✨ <i>Admin Panel မှတစ်ဆင့် အတည်ပြုပြီးပါပြီ။</i>`,
+          { parse_mode: 'HTML' },
+        );
+      } catch (error: any) {
+        console.error('Telegram Edit Error:', error.message);
+        // Message က Admin ဘက်မှာ ဖျက်လိုက်တာမျိုးဆိုရင် Edit လို့မရလို့ Error တက်နိုင်ပါတယ်
+      }
+    }
+
+    return { success: true };
+  }
+
   @Post('approve-withdraw/:id')
   async approve(@Param('id', ParseIntPipe) id: number) {
     // 1. အရင်ဆုံး status ကို DB မှာ approve လုပ်ပါတယ်
@@ -816,11 +848,6 @@ export class AdminController {
   async reject(@Param('id', ParseIntPipe) id: number) {
     await this.withdrawService.rejectWithdraw(id);
     return { success: true };
-  }
-
-  @Post('approve-deposit/:id')
-  async approveDep(@Param('id', ParseIntPipe) id: number) {
-    return await this.withdrawService.approveDeposit(id);
   }
 
   // admin.controller.ts ထဲသို့ ထည့်ရန်

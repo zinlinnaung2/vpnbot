@@ -164,7 +164,7 @@ export class TopUpScene {
       const channelId = process.env.ADMIN_CHANNEL_ID;
 
       if (channelId) {
-        await ctx.telegram.sendPhoto(channelId, fileId, {
+        const adminMsg = await ctx.telegram.sendPhoto(channelId, fileId, {
           caption:
             `🔔 <b>New Deposit Request</b>\n` +
             `➖➖➖➖➖➖➖➖➖➖\n` +
@@ -189,30 +189,12 @@ export class TopUpScene {
             ],
           },
         });
-      }
 
-      // if (adminId) {
-      //   await ctx.telegram.sendPhoto(adminId, fileId, {
-      //     caption: `🔔 <b>New Deposit Request</b>\n👤 User: ${ctx.from.first_name}\n💰 Amount: ${amount.toLocaleString()} MMK`,
-      //     parse_mode: 'HTML',
-      //     reply_markup: {
-      //       inline_keyboard: [
-      //         [
-      //           {
-      //             text: '✅ Approve',
-      //             callback_data: `approve_deposit_${deposit.id}`,
-      //           },
-      //         ],
-      //         [
-      //           {
-      //             text: '❌ Reject',
-      //             callback_data: `reject_deposit_${deposit.id}`,
-      //           },
-      //         ],
-      //       ],
-      //     },
-      //   });
-      // }
+        await this.prisma.deposit.update({
+          where: { id: deposit.id },
+          data: { adminMessageId: adminMsg.message_id.toString() },
+        });
+      }
 
       await ctx.telegram
         .deleteMessage(ctx.chat.id, loadingMsg.message_id)
