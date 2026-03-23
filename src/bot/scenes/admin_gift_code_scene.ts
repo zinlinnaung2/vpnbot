@@ -15,7 +15,6 @@ export class AdminGiftCodeScene {
     );
   }
 
-  @On('text')
   @On('channel_post') // This catches posts made by the Channel identity
   async onCodeReceived(@Ctx() ctx: any) {
     // ✨ FIX: Check both message (Private/Group) and channelPost (Channel)
