@@ -217,14 +217,14 @@ export class BotUpdate {
     }
   }
 
-  @On('channel_post')
-  async onChannelPost(@Ctx() ctx: any) {
-    console.log('---------------------------------');
-    console.log('📢 Channel Post Detected!');
-    console.log('🆔 Channel ID:', ctx.chat.id);
-    console.log('💬 Message Text:', ctx.channelPost.text);
-    console.log('---------------------------------');
-  }
+  // @On('channel_post')
+  // async onChannelPost(@Ctx() ctx: any) {
+  //   console.log('---------------------------------');
+  //   console.log('📢 Channel Post Detected!');
+  //   console.log('🆔 Channel ID:', ctx.chat.id);
+  //   console.log('💬 Message Text:', ctx.channelPost.text);
+  //   console.log('---------------------------------');
+  // }
 
   // @On('message')
   // async onMessage(@Ctx() ctx: any) {
