@@ -1190,7 +1190,7 @@ export class BotUpdate {
       const name = purchase.product.name.toUpperCase();
 
       // --- [ GIFTCARD သို့မဟုတ် VPN ဖြစ်လျှင် Code တောင်းမည် ] ---
-      if (category === 'GIFTCARD' || name.includes('VPN')) {
+      if (category === 'GIFTCARD' || category === 'VPN') {
         await ctx.answerCbQuery();
 
         // Status ကို PROCESSING သို့ ပြောင်းလဲခြင်း (Code စောင့်နေပြီဟု သတ်မှတ်)
