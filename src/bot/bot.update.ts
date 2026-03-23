@@ -1150,7 +1150,7 @@ export class BotUpdate {
 
       // --- CHECK IF IT IS A GIFTCARD ---
       if (
-        purchase.product.category?.toUpperCase() === 'GIFTCARD ' ||
+        purchase.product.category?.toUpperCase() === 'GIFTCARD' ||
         purchase.product.name.toUpperCase().includes('VPN')
       ) {
         await ctx.answerCbQuery();
