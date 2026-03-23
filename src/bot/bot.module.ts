@@ -12,6 +12,7 @@ import { GamePurchaseScene } from './scenes/game-purchase.scene';
 import { SettingsService } from 'src/admin/settings.service';
 import { LuckyDrawService } from 'src/lucky-draw/lucky-draw.service';
 import { LuckyDrawWizard } from './scenes/lucky_draw_scene';
+import { AdminGiftCodeScene } from './scenes/admin_gift_code_scene';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { LuckyDrawWizard } from './scenes/lucky_draw_scene';
     LuckyDrawWizard,
     LuckyDrawService, // ဒီနေရာမှာ ထည့်ပါ
     SettingsService,
+    AdminGiftCodeScene,
   ],
 })
 export class BotModule {}

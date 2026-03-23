@@ -93,7 +93,9 @@ export class GamePurchaseScene {
     state.product = product;
 
     // --- NEW LOGIC FOR GIFTCARD ---
-    const isGiftCard = product.category?.toUpperCase() === 'GIFTCARD';
+    const isGiftCard =
+      product.category?.toUpperCase() === 'GIFTCARD' ||
+      product.subCategory?.toUpperCase() === 'VPN';
 
     if (isGiftCard) {
       state.playerId = 'GIFT-CARD-USER'; // Placeholder

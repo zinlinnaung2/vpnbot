@@ -1146,6 +1146,18 @@ export class BotUpdate {
         include: { user: true, product: true },
       });
 
+      if (!purchase) return ctx.answerCbQuery('Purchase not found');
+
+      // --- CHECK IF IT IS A GIFTCARD ---
+      if (
+        purchase.product.category?.toUpperCase() === 'GIFTCARD ' ||
+        purchase.product.name.toUpperCase().includes('VPN')
+      ) {
+        await ctx.answerCbQuery();
+        // Enter a specialized scene to ask the admin for the code
+        return ctx.scene.enter('admin_gift_code_scene', { purchaseId });
+      }
+
       // Admin Message Update - Inline Buttons ကို ဖျောက်ပြီး Status ပြောင်းမယ်
       const caption = (ctx.callbackQuery.message as any).caption || '';
       await ctx.editMessageCaption(
