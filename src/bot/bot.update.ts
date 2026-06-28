@@ -19,6 +19,7 @@ import { BotContext } from 'src/interfaces/bot-context.interface';
 import { PrismaService } from '../prisma/prisma.service';
 import { LuckyDrawService } from 'src/lucky-draw/lucky-draw.service';
 import { WithdrawService } from 'src/wallet/withdraw.service';
+import { VpnService } from 'src/vpn/vpn.service';
 
 export const MAIN_KEYBOARD = Markup.keyboard([
   ['🎟️ MLBB Lucky Draw', '🎁 ဆုလာဘ်ထုတ်ယူရန်'],
@@ -47,6 +48,7 @@ export class BotUpdate {
     private readonly prisma: PrismaService,
     private readonly drawService: LuckyDrawService,
     private readonly withdrawService: WithdrawService,
+    private readonly vpnService: VpnService, // Inject လုပ်ပါ
   ) {}
 
   @Start()
@@ -1187,15 +1189,74 @@ export class BotUpdate {
       });
 
       if (!purchase) return ctx.answerCbQuery('❌ Order မတွေ့ပါ။');
+      if (purchase.status === 'COMPLETED')
+        return ctx.answerCbQuery('ဤ Order ပြီးဆုံးသွားပါပြီ။');
 
       const category = purchase.product.category?.toUpperCase().trim() || '';
-      const name = purchase.product.name.toUpperCase();
 
-      // --- [ GIFTCARD သို့မဟုတ် VPN ဖြစ်လျှင် Code တောင်းမည် ] ---
-      if (category === 'GIFTCARD' || category === 'VPN') {
+      // ==========================================
+      // ၁။ VPN အတွက် Auto Generate Logic
+      // ==========================================
+      if (category === 'VPN') {
+        await ctx.answerCbQuery('Generating VPN Key...');
+        const caption = (ctx.callbackQuery.message as any).caption || '';
+
+        // Processing လို့ အရင်ပြထားမည်
+        await ctx.editMessageCaption(
+          `${caption}\n\n⏳ <b>Generating VPN Key via API...</b>`,
+          { parse_mode: 'HTML' },
+        );
+
+        // Outline API ခေါ်ခြင်း
+        const userName =
+          purchase.user.firstName || purchase.user.telegramId.toString();
+        const vpnResult = await this.vpnService.generateKey(userName);
+
+        if (vpnResult.success) {
+          // DB Status ကို Completed ပြောင်းမည်
+          await this.prisma.purchase.update({
+            where: { id: purchaseId },
+            data: { status: 'COMPLETED' },
+          });
+
+          // Admin Channel တွင် အောင်မြင်ကြောင်းပြမည်
+          await ctx.editMessageCaption(
+            `${caption}\n\n✅ <b>VPN AUTO COMPLETED BY ${ctx.from.first_name.toUpperCase()}</b>`,
+            { parse_mode: 'HTML', reply_markup: { inline_keyboard: [] } },
+          );
+
+          // User ထံသို့ Key တိုက်ရိုက်ပို့ပေးမည်
+          const userMsg =
+            `✅ <b>VPN ဝယ်ယူမှု အောင်မြင်ပါသည်!</b>\n\n` +
+            `📦 ပစ္စည်း: <b>${purchase.product.name}</b>\n` +
+            `💰 ကျသင့်ငွေ: <b>${purchase.amount.toLocaleString()} MMK</b>\n\n` +
+            `🔑 <b>သင်၏ VPN Key:</b>\n<code>${vpnResult.keyUrl}</code>\n\n` +
+            `(အထက်ပါ Key ကို Copy ကူးပြီး Outline App ထဲတွင် ထည့်သွင်းအသုံးပြုနိုင်ပါသည်။)`;
+
+          await ctx.telegram.sendMessage(
+            Number(purchase.user.telegramId),
+            userMsg,
+            { parse_mode: 'HTML' },
+          );
+          return;
+        } else {
+          // API ကျဆုံးပါက Admin ကို အသိပေးပြီး မူလအခြေအနေပြန်ထားမည်
+          await ctx.editMessageCaption(
+            `${caption}\n\n❌ <b>VPN API Error! Please check server.</b>`,
+            { parse_mode: 'HTML' },
+          );
+          await ctx.answerCbQuery(
+            'API ဖြင့် ထုတ်ယူ၍မရပါ။ Server ကို စစ်ဆေးပါ။',
+          );
+          return;
+        }
+      }
+
+      // ==========================================
+      // ၂။ GIFTCARD အတွက် Manual Input Logic
+      // ==========================================
+      if (category === 'GIFTCARD') {
         await ctx.answerCbQuery();
-
-        // Status ကို PROCESSING သို့ ပြောင်းလဲခြင်း (Code စောင့်နေပြီဟု သတ်မှတ်)
         await this.prisma.purchase.update({
           where: { id: purchaseId },
           data: { status: 'PROCESSING' },
@@ -1203,7 +1264,7 @@ export class BotUpdate {
 
         const caption = (ctx.callbackQuery.message as any).caption || '';
         await ctx.editMessageCaption(
-          `${caption}\n\n⏳ <b>[ GIFTCARD/VPN စနစ် ]</b>\n🔑 လူကြီးမင်း၏ Gift Code ကို အောက်တွင် ရိုက်ထည့်ပေးပါ -`,
+          `${caption}\n\n⏳ <b>[ GIFTCARD စနစ် ]</b>\n🔑 လူကြီးမင်း၏ Gift Code ကို အောက်တွင် ရိုက်ထည့်ပေးပါ -`,
           {
             parse_mode: 'HTML',
             reply_markup: {
@@ -1221,7 +1282,10 @@ export class BotUpdate {
         return;
       }
 
-      // --- [ သာမန် ပစ္စည်းများအတွက် တိုက်ရိုက် Complete လုပ်ခြင်း ] ---
+      // ==========================================
+      // ၃။ သာမန် ပစ္စည်းများအတွက် (MLBB စသည်) Complete လုပ်ခြင်း
+      // ==========================================
+      await ctx.answerCbQuery('Order Completed!');
       const updated = await this.prisma.purchase.update({
         where: { id: purchaseId },
         data: { status: 'COMPLETED' },
@@ -1231,14 +1295,10 @@ export class BotUpdate {
       const caption = (ctx.callbackQuery.message as any).caption || '';
       await ctx.editMessageCaption(
         `${caption}\n\n✅ <b>COMPLETED BY ${ctx.from.first_name.toUpperCase()}</b>`,
-        {
-          parse_mode: 'HTML',
-          reply_markup: { inline_keyboard: [] },
-        },
+        { parse_mode: 'HTML', reply_markup: { inline_keyboard: [] } },
       );
 
       await this.sendUserSuccessNotification(ctx, updated);
-      await ctx.answerCbQuery('Order Completed!');
     } catch (e) {
       console.error('Done Action Error:', e);
       await ctx.answerCbQuery('Error updating order');
